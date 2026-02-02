@@ -1,0 +1,78 @@
+# Relation Story - Project Rules
+
+## Project Overview
+Application web de visualisation de graphe de relations entre personnes, utilisant Neo4j pour la base de données graphe et Cytoscape.js pour l'affichage interactif.
+
+## Stack Technique
+- **Backend**: Node.js + Express (port 3000)
+- **Frontend**: HTML/CSS/JavaScript vanilla + Cytoscape.js (port 8080)
+- **Database**: Neo4j 5 (ports 7474/7687)
+- **Deployment**: Docker Compose
+
+## Structure du Projet
+```
+relation-story/
+├── backend/
+│   ├── index.js         # API Express avec tous les endpoints
+│   ├── neo4j.js         # Configuration et connexion Neo4j
+│   └── package.json     # Dépendances: express, neo4j-driver
+├── frontend/
+│   ├── index.html       # Interface avec formulaires et graphe
+│   ├── renderer.js      # Logique Cytoscape + gestion événements
+│   └── style.css        # Styles avec sidebar toggleable
+└── docker-compose.yml   # Configuration Neo4j
+```
+
+## Modèle de Données
+### Nœud Person
+- `nom` (string, unique, required) - Identifiant unique de la personne
+- `origine` (string, optional) - Origine de la personne
+- `x` (number, required) - Position X dans le graphe
+- `y` (number, required) - Position Y dans le graphe
+
+### Relations
+- `FAMILLE` (bleu)
+- `AMIS` (vert)
+- `AMOUR` (rouge)
+
+## API Endpoints
+- `GET /graph` - Récupère tous les nœuds et relations
+- `POST /person` - Crée une personne (nom, origine?, x, y)
+- `DELETE /person` - Supprime une personne (nom)
+- `PATCH /person/coordinates` - Met à jour position (nom, x, y)
+- `POST /relation` - Crée une relation (source, target, type)
+- `DELETE /relation` - Supprime une relation (source, target, type)
+- `DELETE /all` - Supprime tout
+- `GET /export` - Exporte données en JSON
+- `POST /import` - Importe données depuis JSON
+
+## Fonctionnalités Frontend
+- Drag & drop des nœuds avec sauvegarde auto des positions
+- Sidebar toggleable avec bouton "≡ Menu"
+- Formulaires d'ajout de personnes et relations
+- Export/Import de la base en JSON
+- Contrôles de zoom : boutons +/-, Ajuster, molette, trackpad (pinch)
+- Panning : trackpad 2 doigts, clic fond + déplacement
+- Limites de zoom : 0.1x à 10x
+- Nœuds affichés avec fond transparent (hitbox 60x60px)
+
+## Démarrage
+```bash
+# 1. Démarrer Neo4j
+docker-compose up -d
+
+# 2. Démarrer le backend
+cd backend && npm start
+
+# 3. Servir le frontend
+cd frontend && python3 -m http.server 8080
+```
+
+## Conventions
+- Coordonnées obligatoires pour chaque nœud
+- Nom unique par personne (pas de prénom)
+- Origine optionnelle
+- Layout "preset" pour respecter les positions fixes
+- CORS activé pour toutes origines
+- Panning et zoom activés (distinction auto drag nœud vs pan vue)
+- Auto-save des positions après drag & drop

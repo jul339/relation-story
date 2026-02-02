@@ -1,0 +1,70 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Logs
+logs/
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+esd.yml
+Thumbs.db
+Desktop.ini
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Build / Distribution
+dist/
+build/
+*.zip
+*.tar.gz
+
+# Database exports (optionnel - décommenter si vous ne voulez pas versionner les exports)
+# *.json
+
+# Neo4j data (si vous utilisez Neo4j en local sans Docker)
+neo4j/
+neo4j_data/
+
+# Python (pour le serveur HTTP)
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Coverage / Tests
+coverage/
+.nyc_output/
+
+# Misc
+*.pid
+*.seed
+*.pid.lock
