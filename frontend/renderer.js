@@ -28,6 +28,26 @@ const cy = cytoscape({
             }
         },
         {
+            selector: 'node[type="group"]',    // Nœuds de type groupe
+            style: {
+                'label': 'data(id)',
+                'text-valign': 'top',
+                'text-halign': 'center',
+                'text-margin-y': -10,
+                'background-opacity': 0.2,      // Fond semi-transparent
+                'background-color': 'data(color)', // Couleur selon l'origine
+                'border-width': 2,
+                'border-color': 'data(color)',
+                'border-opacity': 0.6,
+                'shape': 'roundrectangle',      // Rectangle avec coins arrondis
+                'font-size': 12,
+                'font-weight': 'bold',
+                'color': '#333',
+                'z-index': 0,                   // En arrière-plan
+                'padding': 20                   // Espace autour des enfants
+            }
+        },
+        {
             selector: 'edge',
             style: {
                 'width': 2,                     // Épaisseur modérée
@@ -61,11 +81,46 @@ async function loadGraph() {
 
         cy.elements().remove(); // reset graphe
 
-        // Ajouter les nœuds avec leurs coordonnées
+        // Couleurs pour les groupes (origines)
+        const groupColors = {
+            'Famille': '#e3f2fd',
+            'Travail': '#fff3e0',
+            'École': '#f3e5f5',
+            'Amis': '#e8f5e9',
+            'Sport': '#fce4ec',
+            'default': '#f5f5f5'
+        };
+
+        // Identifier les origines uniques et créer les groupes
+        const origines = new Set();
         data.nodes.forEach(node => {
+            if (node.origine) {
+                origines.add(node.origine);
+            }
+        });
+
+        // Créer un nœud parent pour chaque origine
+        origines.forEach(origine => {
             cy.add({
                 group: 'nodes',
-                data: { id: node.id, label: node.id },
+                data: { 
+                    id: `group_${origine}`,
+                    type: 'group',
+                    color: groupColors[origine] || groupColors.default
+                }
+            });
+        });
+
+        // Ajouter les nœuds avec leurs coordonnées et assigner au groupe parent
+        data.nodes.forEach(node => {
+            const parent = node.origine ? `group_${node.origine}` : undefined;
+            cy.add({
+                group: 'nodes',
+                data: { 
+                    id: node.id, 
+                    label: node.id,
+                    parent: parent
+                },
                 position: { x: node.x, y: node.y }
             });
         });
@@ -244,6 +299,38 @@ async function addPersonList(noms, origine) {
     loadGraph();
 }
 
+// Fonction pour supprimer une personne
+async function deletePerson(nom) {
+    const res = await fetch("http://localhost:3000/person", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nom })
+    });
+    
+    if (res.ok) {
+        alert("Personne supprimée avec succès !");
+        loadGraph();
+    } else {
+        alert("Erreur lors de la suppression");
+    }
+}
+
+// Fonction pour mettre à jour une personne
+async function updatePerson(oldNom, nom, origine) {
+    const res = await fetch("http://localhost:3000/person", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldNom, nom, origine })
+    });
+    
+    if (res.ok) {
+        alert("Personne modifiée avec succès !");
+        loadGraph();
+    } else {
+        alert("Erreur lors de la modification");
+    }
+}
+
 // Fonction pour ajouter une relation
 async function addRelation(source, target, type) {
     const res = await fetch("http://localhost:3000/relation", {
@@ -308,6 +395,36 @@ cy.on('click', function (evt) {
             const origine = prompt("Origine (optionnel, appuyez sur Entrée pour ignorer) :");
             addPerson(nom.trim(), origine ? origine.trim() : null,
                 Math.round(position.x), Math.round(position.y));
+        }
+    }
+});
+
+// Event listener pour modifier/supprimer un nœud en cliquant dessus
+cy.on('tap', 'node[!type]', function(evt) {
+    const node = evt.target;
+    const nom = node.data('id');
+    
+    const action = prompt(
+        `Nœud: ${nom}\n\n` +
+        `Tapez:\n` +
+        `- "s" ou "supprimer" pour supprimer\n` +
+        `- "m" ou "modifier" pour modifier\n` +
+        `- Entrée pour annuler`
+    );
+    
+    if (!action) return;
+    
+    const actionLower = action.toLowerCase().trim();
+    
+    if (actionLower === 's' || actionLower === 'supprimer') {
+        if (confirm(`Voulez-vous vraiment supprimer "${nom}" ?`)) {
+            deletePerson(nom);
+        }
+    } else if (actionLower === 'm' || actionLower === 'modifier') {
+        const newNom = prompt(`Nouveau nom (actuel: ${nom}) :`, nom);
+        if (newNom && newNom.trim()) {
+            const newOrigine = prompt(`Nouvelle origine (laissez vide pour aucune) :`);
+            updatePerson(nom, newNom.trim(), newOrigine ? newOrigine.trim() : null);
         }
     }
 });

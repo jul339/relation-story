@@ -101,6 +101,23 @@ app.patch("/person/coordinates", async (req, res) => {
     res.sendStatus(200);
 });
 
+/* ---------- UPDATE PERSON ---------- */
+app.patch("/person", async (req, res) => {
+    const { oldNom, nom, origine } = req.body;
+
+    if (!oldNom) {
+        return res.status(400).json({ error: "oldNom est requis" });
+    }
+
+    const query = `
+    MATCH (p:Person {nom:$oldNom})
+    SET p.nom = $nom, p.origine = $origine
+  `;
+
+    await runQuery(query, { oldNom, nom: nom || oldNom, origine });
+    res.sendStatus(200);
+});
+
 /* ---------- DELETE PERSON ---------- */
 app.delete("/person", async (req, res) => {
     const { nom } = req.body;
