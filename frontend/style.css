@@ -76,13 +76,19 @@ h1 {
     color: #333;
 }
 
-form input, form select {
+form input, form select, form textarea {
     width: 100%;
     padding: 8px;
     margin-bottom: 10px;
     border: 1px solid #ccc;
     border-radius: 4px;
     box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+form textarea {
+    resize: vertical;
+    min-height: 60px;
 }
 
 form button, .action-btn {

@@ -21,9 +21,20 @@
                 <form id="form-person">
                     <input type="text" id="nom" placeholder="Nom (unique)" required>
                     <input type="text" id="origine" placeholder="Origine (optionnel)">
-                    <input type="number" id="x" placeholder="Position X" required>
-                    <input type="number" id="y" placeholder="Position Y" required>
+                    <input type="number" id="x" placeholder="Position X (auto si vide)">
+                    <input type="number" id="y" placeholder="Position Y (auto si vide)">
                     <button type="submit">Ajouter</button>
+                </form>
+            </div>
+
+            <!-- Formulaire pour ajouter une liste -->
+            <div class="form-section">
+                <h3>Ajouter une liste</h3>
+                <form id="form-list">
+                    <textarea id="list-noms" placeholder="Noms séparés par des virgules&#10;Ex: Jean, Marie, Paul" rows="3" required></textarea>
+                    <input type="text" id="list-origine" placeholder="Origine (optionnel)">
+                    <button type="submit">Ajouter liste</button>
+                    <small style="color: #666;">Les positions sont calculées automatiquement</small>
                 </form>
             </div>
 
