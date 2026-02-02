@@ -338,13 +338,57 @@ async function addRelation(source, target, type) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source, target, type })
     });
-
+    
     if (res.ok) {
         alert("Relation ajoutée avec succès !");
         loadGraph();
     } else {
         alert("Erreur lors de l'ajout de la relation");
     }
+}
+
+// Fonction pour supprimer une relation
+async function deleteRelation(source, target, type) {
+    const res = await fetch("http://localhost:3000/relation", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source, target, type })
+    });
+    
+    if (res.ok) {
+        alert("Relation supprimée avec succès !");
+        loadGraph();
+    } else {
+        alert("Erreur lors de la suppression de la relation");
+    }
+}
+
+// Fonction pour dissoudre un groupe (retirer l'origine des membres)
+async function dissolveGroup(members) {
+    let successCount = 0;
+    let errorCount = 0;
+    
+    for (const member of members) {
+        const nom = member.data('id');
+        try {
+            const res = await fetch("http://localhost:3000/person", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ oldNom: nom, nom: nom, origine: null })
+            });
+            
+            if (res.ok) {
+                successCount++;
+            } else {
+                errorCount++;
+            }
+        } catch (error) {
+            errorCount++;
+        }
+    }
+    
+    alert(`Groupe dissous : ${successCount} membres mis à jour, ${errorCount} erreurs`);
+    loadGraph();
 }
 
 // Fonction pour tout supprimer
@@ -399,8 +443,8 @@ cy.on('click', function (evt) {
     }
 });
 
-// Event listener pour modifier/supprimer un nœud en cliquant dessus
-cy.on('tap', 'node[!type]', function(evt) {
+// Event listener pour modifier/supprimer un nœud en double-cliquant dessus
+cy.on('dbltap', 'node[!type]', function(evt) {
     const node = evt.target;
     const nom = node.data('id');
     
@@ -425,6 +469,67 @@ cy.on('tap', 'node[!type]', function(evt) {
         if (newNom && newNom.trim()) {
             const newOrigine = prompt(`Nouvelle origine (laissez vide pour aucune) :`);
             updatePerson(nom, newNom.trim(), newOrigine ? newOrigine.trim() : null);
+        }
+    }
+});
+
+// Event listener pour modifier/supprimer une relation en double-cliquant dessus
+cy.on('dbltap', 'edge', function(evt) {
+    const edge = evt.target;
+    const source = edge.data('source');
+    const target = edge.data('target');
+    const type = edge.id().split('_').pop(); // Extraire le type du dernier segment de l'ID
+    
+    const action = prompt(
+        `Relation: ${source} → ${target} (${type})\n\n` +
+        `Tapez:\n` +
+        `- "s" ou "supprimer" pour supprimer\n` +
+        `- "f" "a" ou "m" pour changer le type (FAMILLE, AMIS, AMOUR)\n` +
+        `- Entrée pour annuler`
+    );
+    
+    if (!action) return;
+    
+    const actionLower = action.toLowerCase().trim();
+    
+    if (actionLower === 's' || actionLower === 'supprimer') {
+        if (confirm(`Voulez-vous vraiment supprimer cette relation ?`)) {
+            deleteRelation(source, target, type);
+        }
+    } else if (actionLower === 'f' || actionLower === 'a' || actionLower === 'm') {
+        const newType = actionLower === 'f' ? 'FAMILLE' : 
+                       actionLower === 'a' ? 'AMIS' : 'AMOUR';
+        
+        // Supprimer l'ancienne et créer la nouvelle
+        deleteRelation(source, target, type);
+        setTimeout(() => addRelation(source, target, newType), 500);
+    }
+});
+
+// Event listener pour les groupes en double-cliquant dessus
+cy.on('dbltap', 'node[type="group"]', function(evt) {
+    const group = evt.target;
+    const groupName = group.data('id').replace('group_', '');
+    
+    // Compter les membres du groupe
+    const members = cy.nodes(`[parent="${group.data('id')}"]`);
+    const memberNames = members.map(n => n.data('id')).join(', ');
+    
+    const action = prompt(
+        `Groupe: ${groupName}\n` +
+        `Membres (${members.length}): ${memberNames}\n\n` +
+        `Tapez:\n` +
+        `- "d" ou "dissoudre" pour retirer l'origine de tous les membres\n` +
+        `- Entrée pour annuler`
+    );
+    
+    if (!action) return;
+    
+    const actionLower = action.toLowerCase().trim();
+    
+    if (actionLower === 'd' || actionLower === 'dissoudre') {
+        if (confirm(`Voulez-vous vraiment retirer l'origine "${groupName}" de tous les membres ?`)) {
+            dissolveGroup(members);
         }
     }
 });
