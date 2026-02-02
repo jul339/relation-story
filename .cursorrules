@@ -47,14 +47,16 @@ relation-story/
 - `POST /import` - Importe données depuis JSON
 
 ## Fonctionnalités Frontend
-- Drag & drop des nœuds avec sauvegarde auto des positions
-- Sidebar toggleable avec bouton "≡ Menu"
-- Formulaires d'ajout de personnes et relations
-- Export/Import de la base en JSON
-- Contrôles de zoom : boutons +/-, Ajuster, molette, trackpad (pinch)
-- Panning : trackpad 2 doigts, clic fond + déplacement
-- Limites de zoom : 0.1x à 10x
-- Nœuds affichés avec fond transparent (hitbox 60x60px)
+- **Création** : formulaire, liste CSV, clic sur graphe
+- **Modification** : double-clic sur nœuds/relations/groupes
+- **Positions auto** : calcul intelligent basé sur nœuds existants
+- **Groupes visuels** : rectangles arrondis par origine
+- **Drag & drop** : déplacement avec sauvegarde auto
+- **Zoom/Pan** : molette, trackpad, boutons (+/- 0.1x-10x)
+- **Export/Import** : sauvegarde JSON complète
+- **Sidebar toggleable** : bouton "≡ Menu"
+- **Labels protégés** : fond blanc semi-transparent
+- **Flèches optimisées** : 2px, s'arrêtent avant nœuds
 
 ## Démarrage
 ```bash

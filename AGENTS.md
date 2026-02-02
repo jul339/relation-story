@@ -79,6 +79,13 @@ Body: { "nom": "Jean", "x": 150, "y": 250 }
 Response: 200 OK
 ```
 
+### PATCH /person
+Met à jour le nom et/ou l'origine d'une personne
+```json
+Body: { "oldNom": "Jean", "nom": "Jean-Paul", "origine": "Travail" }
+Response: 200 OK
+```
+
 ### POST /relation
 Crée une relation entre deux personnes
 ```json
@@ -150,11 +157,19 @@ Response: { "message": "Import réussi", "nodesCount": 5, "edgesCount": 3 }
 
 ### Interface Utilisateur
 1. **Sidebar toggleable** (bouton "≡ Menu" en haut à gauche)
-2. **Formulaire Personne**: nom (unique), origine (optionnel), x, y
-3. **Formulaire Relation**: source, cible, type
-4. **Contrôles du graphe**: Zoom +, Zoom -, Ajuster
-5. **Actions**: Rafraîchir, Tout supprimer
-6. **Sauvegarde**: Exporter, Importer
+2. **Formulaire Personne**: nom (unique), origine (optionnel), x/y (auto si vide)
+3. **Formulaire Liste**: noms CSV, origine optionnelle (positions auto)
+4. **Formulaire Relation**: source, cible, type
+5. **Contrôles du graphe**: Zoom +, Zoom -, Ajuster
+6. **Actions**: Rafraîchir, Tout supprimer
+7. **Sauvegarde**: Exporter, Importer
+
+### Interactions Directes
+- **Clic sur fond** → Crée un nœud
+- **Double-clic nœud** → Menu modifier/supprimer
+- **Double-clic relation** → Menu changer type/supprimer
+- **Double-clic groupe** → Info/Dissoudre
+- **Drag nœud** → Déplace avec auto-save
 
 ## 🚀 Démarrage du Projet
 
@@ -181,12 +196,18 @@ Accès:
 
 ### Historique des Changements
 - **Modèle simplifié**: Anciennement nom+prénom, maintenant juste nom unique
-- **Coordonnées obligatoires**: x et y requis pour chaque nœud
+- **Coordonnées auto**: Calcul intelligent si non spécifiées
 - **Origine optionnelle**: Peut être null/undefined
+- **Ajout en masse**: Liste CSV avec positions auto en cercle
+- **Création par clic**: Clic sur fond → nouveau nœud
+- **Modification par double-clic**: Nœuds, relations, groupes
+- **Groupes visuels**: Rectangles arrondis par origine
 - **Drag & drop**: Sauvegarde auto via endpoint PATCH
 - **Export/Import**: Système complet de backup/restore
 - **Contrôles de zoom**: Boutons +/-, Ajuster, support trackpad et molette
-- **Panning réactivé**: Support trackpad et souris, distinction auto avec drag de nœuds
+- **Panning**: Support trackpad et souris, distinction auto avec drag de nœuds
+- **Flèches optimisées**: 2px, s'arrêtent 5px avant nœuds
+- **Labels protégés**: Fond blanc semi-transparent
 
 ### Patterns de Code
 - **Frontend**: Vanilla JS avec async/await pour les API calls
