@@ -1,8 +1,13 @@
 import express from "express";
+import crypto from "crypto";
 import { runQuery } from "./neo4j.js";
+import { initSnapshotsDir, createSnapshot, listSnapshots, getSnapshotById, restoreSnapshot } from "./snapshots.js";
 
 const app = express();
 app.use(express.json());
+
+// Initialiser le dossier snapshots au démarrage
+initSnapshotsDir();
 
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*'); // autorise toutes les origines
@@ -59,19 +64,40 @@ app.get("/graph", async (req, res) => {
     });
 });
 
+/* ---------- GET PERSON BY NOM ---------- */
+app.get("/person/:nom", async (req, res) => {
+    const { nom } = req.params;
+
+    const query = `
+        MATCH (p:Person {nom: $nom})
+        RETURN p
+    `;
+    const records = await runQuery(query, { nom });
+
+    if (records.length === 0) {
+        return res.status(404).json({ error: "Personne non trouvée" });
+    }
+
+    const p = records[0].get("p").properties;
+    res.json({
+        id: p.nom,
+        ...p
+    });
+});
+
 /* ---------- ADD PERSON ---------- */
 app.post("/person", async (req, res) => {
     const { nom, origine, x, y } = req.body;
 
     // Vérifier que le nom et les coordonnées sont obligatoires
     if (!nom) {
-        return res.status(400).json({ 
-            error: "Le nom est obligatoire" 
+        return res.status(400).json({
+            error: "Le nom est obligatoire"
         });
     }
     if (x === undefined || y === undefined) {
-        return res.status(400).json({ 
-            error: "Les coordonnées x et y sont obligatoires" 
+        return res.status(400).json({
+            error: "Les coordonnées x et y sont obligatoires"
         });
     }
 
@@ -248,7 +274,472 @@ app.delete("/relation", async (req, res) => {
     res.sendStatus(200);
 });
 
-/* ---------- START SERVER ---------- */
-app.listen(3000, () => {
-    console.log("Backend running on http://localhost:3000");
+/* ---------- PROPOSALS ENDPOINTS ---------- */
+
+// Soumettre une proposition (public)
+app.post("/proposals", async (req, res) => {
+    const { authorName, authorEmail, type, data } = req.body;
+
+    // Validation
+    if (!authorName || !type || !data) {
+        return res.status(400).json({
+            error: "authorName, type et data sont obligatoires"
+        });
+    }
+
+    const validTypes = ["add_node", "add_relation", "modify_node", "delete_node", "delete_relation"];
+    if (!validTypes.includes(type)) {
+        return res.status(400).json({
+            error: `Type invalide. Types acceptés: ${validTypes.join(", ")}`
+        });
+    }
+
+    try {
+        const id = crypto.randomUUID();
+        const createdAt = new Date().toISOString();
+
+        const query = `
+            CREATE (p:Proposal {
+                id: $id,
+                authorName: $authorName,
+                authorEmail: $authorEmail,
+                type: $type,
+                data: $data,
+                status: 'pending',
+                createdAt: $createdAt,
+                reviewedAt: null,
+                reviewedBy: null,
+                comment: null
+            })
+            RETURN p
+        `;
+
+        await runQuery(query, {
+            id,
+            authorName,
+            authorEmail: authorEmail || null,
+            type,
+            data: JSON.stringify(data),
+            createdAt
+        });
+
+        res.status(201).json({
+            id,
+            message: "Proposition créée avec succès"
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: "Erreur lors de la création de la proposition",
+            details: error.message
+        });
+    }
 });
+
+// Statistiques publiques
+app.get("/proposals/stats", async (req, res) => {
+    try {
+        const query = `
+            MATCH (p:Proposal)
+            RETURN p.status as status, count(p) as count
+        `;
+
+        const records = await runQuery(query);
+        const stats = {
+            pending: 0,
+            approved: 0,
+            rejected: 0,
+            total: 0
+        };
+
+        records.forEach(record => {
+            const status = record.get("status");
+            const count = record.get("count").toNumber();
+            stats[status] = count;
+            stats.total += count;
+        });
+
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({
+            error: "Erreur lors de la récupération des statistiques",
+            details: error.message
+        });
+    }
+});
+
+// Liste des propositions (admin)
+app.get("/proposals", async (req, res) => {
+    const status = req.query.status || "pending";
+
+    try {
+        let query;
+        if (status === "all") {
+            query = `
+                MATCH (p:Proposal)
+                RETURN p
+                ORDER BY p.createdAt DESC
+            `;
+        } else {
+            query = `
+                MATCH (p:Proposal)
+                WHERE p.status = $status
+                RETURN p
+                ORDER BY p.createdAt DESC
+            `;
+        }
+
+        const records = await runQuery(query, { status });
+        const proposals = records.map(record => {
+            const props = record.get("p").properties;
+            return {
+                ...props,
+                data: JSON.parse(props.data)
+            };
+        });
+
+        res.json(proposals);
+    } catch (error) {
+        res.status(500).json({
+            error: "Erreur lors de la récupération des propositions",
+            details: error.message
+        });
+    }
+});
+
+// Détails d'une proposition (admin)
+app.get("/proposals/:id", async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const query = `
+            MATCH (p:Proposal {id: $id})
+            RETURN p
+        `;
+
+        const records = await runQuery(query, { id });
+
+        if (records.length === 0) {
+            return res.status(404).json({ error: "Proposition introuvable" });
+        }
+
+        const props = records[0].get("p").properties;
+        const proposal = {
+            ...props,
+            data: JSON.parse(props.data)
+        };
+
+        res.json(proposal);
+    } catch (error) {
+        res.status(500).json({
+            error: "Erreur lors de la récupération de la proposition",
+            details: error.message
+        });
+    }
+});
+
+// Approuver une proposition (admin)
+app.post("/proposals/:id/approve", async (req, res) => {
+    const { id } = req.params;
+    const { reviewedBy, comment } = req.body;
+
+    if (!reviewedBy) {
+        return res.status(400).json({ error: "reviewedBy est obligatoire" });
+    }
+
+    try {
+        // Récupérer la proposition
+        const getQuery = `MATCH (p:Proposal {id: $id}) RETURN p`;
+        const records = await runQuery(getQuery, { id });
+
+        if (records.length === 0) {
+            return res.status(404).json({ error: "Proposition introuvable" });
+        }
+
+        const props = records[0].get("p").properties;
+        const proposal = {
+            ...props,
+            data: JSON.parse(props.data)
+        };
+
+        if (proposal.status !== "pending") {
+            return res.status(400).json({
+                error: `Proposition déjà ${proposal.status}`
+            });
+        }
+
+        // Appliquer le changement selon le type
+        const { type, data } = proposal;
+
+        try {
+            switch (type) {
+                case "add_node":
+                    await runQuery(`
+                        CREATE (:Person {
+                            nom: $nom,
+                            origine: $origine,
+                            x: $x,
+                            y: $y
+                        })
+                    `, {
+                        nom: data.nom,
+                        origine: data.origine || null,
+                        x: data.x,
+                        y: data.y
+                    });
+                    break;
+
+                case "add_relation":
+                    await runQuery(`
+                        MATCH (a:Person {nom: $source})
+                        MATCH (b:Person {nom: $target})
+                        CREATE (a)-[:${data.type}]->(b)
+                    `, {
+                        source: data.source,
+                        target: data.target
+                    });
+                    break;
+
+                case "modify_node":
+                    const setClause = [];
+                    const params = { nom: data.nom };
+
+                    if (data.newNom) {
+                        setClause.push("p.nom = $newNom");
+                        params.newNom = data.newNom;
+                    }
+                    if (data.newOrigine !== undefined) {
+                        setClause.push("p.origine = $newOrigine");
+                        params.newOrigine = data.newOrigine;
+                    }
+
+                    if (setClause.length > 0) {
+                        await runQuery(`
+                            MATCH (p:Person {nom: $nom})
+                            SET ${setClause.join(", ")}
+                        `, params);
+                    }
+                    break;
+
+                case "delete_node":
+                    await runQuery(`
+                        MATCH (p:Person {nom: $nom})
+                        DETACH DELETE p
+                    `, { nom: data.nom });
+                    break;
+
+                case "delete_relation":
+                    await runQuery(`
+                        MATCH (a:Person {nom: $source})-[r:${data.type}]->(b:Person {nom: $target})
+                        DELETE r
+                    `, {
+                        source: data.source,
+                        target: data.target
+                    });
+                    break;
+
+                default:
+                    throw new Error(`Type de proposition inconnu: ${type}`);
+            }
+
+            // Créer un snapshot automatique
+            const snapshotMessage = `Approbation proposition: ${type} - ${reviewedBy}`;
+            await createSnapshot(snapshotMessage, reviewedBy);
+
+            // Mettre à jour la proposition
+            const reviewedAt = new Date().toISOString();
+            await runQuery(`
+                MATCH (p:Proposal {id: $id})
+                SET p.status = 'approved',
+                    p.reviewedAt = $reviewedAt,
+                    p.reviewedBy = $reviewedBy,
+                    p.comment = $comment
+            `, {
+                id,
+                reviewedAt,
+                reviewedBy,
+                comment: comment || null
+            });
+
+            res.json({
+                message: "Proposition approuvée et appliquée avec succès",
+                snapshotCreated: true
+            });
+
+        } catch (applyError) {
+            // Rollback: marquer la proposition comme rejected en cas d'erreur
+            await runQuery(`
+                MATCH (p:Proposal {id: $id})
+                SET p.status = 'rejected',
+                    p.reviewedAt = $reviewedAt,
+                    p.reviewedBy = $reviewedBy,
+                    p.comment = $errorComment
+            `, {
+                id,
+                reviewedAt: new Date().toISOString(),
+                reviewedBy,
+                errorComment: `Erreur lors de l'application: ${applyError.message}`
+            });
+
+            throw new Error(`Impossible d'appliquer le changement: ${applyError.message}`);
+        }
+
+    } catch (error) {
+        res.status(500).json({
+            error: "Erreur lors de l'approbation de la proposition",
+            details: error.message
+        });
+    }
+});
+
+// Rejeter une proposition (admin)
+app.post("/proposals/:id/reject", async (req, res) => {
+    const { id } = req.params;
+    const { reviewedBy, comment } = req.body;
+
+    if (!reviewedBy) {
+        return res.status(400).json({ error: "reviewedBy est obligatoire" });
+    }
+
+    try {
+        // Vérifier que la proposition existe
+        const getQuery = `MATCH (p:Proposal {id: $id}) RETURN p`;
+        const records = await runQuery(getQuery, { id });
+
+        if (records.length === 0) {
+            return res.status(404).json({ error: "Proposition introuvable" });
+        }
+
+        const props = records[0].get("p").properties;
+
+        if (props.status !== "pending") {
+            return res.status(400).json({
+                error: `Proposition déjà ${props.status}`
+            });
+        }
+
+        // Mettre à jour la proposition
+        const reviewedAt = new Date().toISOString();
+        await runQuery(`
+            MATCH (p:Proposal {id: $id})
+            SET p.status = 'rejected',
+                p.reviewedAt = $reviewedAt,
+                p.reviewedBy = $reviewedBy,
+                p.comment = $comment
+        `, {
+            id,
+            reviewedAt,
+            reviewedBy,
+            comment: comment || null
+        });
+
+        res.json({
+            message: "Proposition rejetée avec succès"
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            error: "Erreur lors du rejet de la proposition",
+            details: error.message
+        });
+    }
+});
+
+/* ---------- SNAPSHOTS ENDPOINTS ---------- */
+
+// Liste tous les snapshots disponibles
+app.get("/snapshots", async (req, res) => {
+    try {
+        const snapshots = listSnapshots();
+        res.json(snapshots);
+    } catch (error) {
+        res.status(500).json({
+            error: "Erreur lors de la récupération des snapshots",
+            details: error.message
+        });
+    }
+});
+
+// Télécharger un snapshot spécifique
+app.get("/snapshots/:id", async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const snapshot = getSnapshotById(id);
+
+        if (!snapshot) {
+            return res.status(404).json({ error: "Snapshot introuvable" });
+        }
+
+        res.json(snapshot);
+    } catch (error) {
+        res.status(500).json({
+            error: "Erreur lors de la récupération du snapshot",
+            details: error.message
+        });
+    }
+});
+
+// Créer un snapshot manuel
+app.post("/snapshots", async (req, res) => {
+    const { message, author } = req.body;
+
+    if (!message || !author) {
+        return res.status(400).json({
+            error: "message et author sont obligatoires"
+        });
+    }
+
+    try {
+        const result = await createSnapshot(message, author);
+        res.status(201).json({
+            message: "Snapshot créé avec succès",
+            ...result
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: "Erreur lors de la création du snapshot",
+            details: error.message
+        });
+    }
+});
+
+// Restaurer un snapshot
+app.post("/snapshots/restore/:id", async (req, res) => {
+    const { id } = req.params;
+    const { author } = req.body;
+
+    if (!author) {
+        return res.status(400).json({
+            error: "author est obligatoire pour tracer la restauration"
+        });
+    }
+
+    try {
+        // Créer un snapshot de sauvegarde avant restauration
+        const backupMessage = `Sauvegarde avant restauration du snapshot ${id}`;
+        await createSnapshot(backupMessage, author);
+
+        // Restaurer le snapshot
+        const result = await restoreSnapshot(id);
+
+        res.json({
+            ...result,
+            backupCreated: true
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: "Erreur lors de la restauration du snapshot",
+            details: error.message
+        });
+    }
+});
+
+/* ---------- START SERVER ---------- */
+// N'écouter que si ce n'est pas un test
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(3000, () => {
+        console.log("Backend running on http://localhost:3000");
+    });
+}
+
+export default app;
