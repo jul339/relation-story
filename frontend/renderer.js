@@ -1,3 +1,9 @@
+const API_BASE = "http://localhost:3000";
+
+// Mode collaborateur : ?mode=propose dans l'URL
+const urlParams = new URLSearchParams(window.location.search);
+const isProposeMode = urlParams.get("mode") === "propose";
+
 const colors = {
     FAMILLE: "blue",
     AMIS: "green",
@@ -76,7 +82,7 @@ const cy = cytoscape({
 // Fonction pour récupérer le graphe depuis le backend
 async function loadGraph() {
     try {
-        const res = await fetch("http://localhost:3000/graph");
+        const res = await fetch(`${API_BASE}/graph`);
         const data = await res.json();
 
         cy.elements().remove(); // reset graphe
@@ -103,7 +109,7 @@ async function loadGraph() {
         origines.forEach(origine => {
             cy.add({
                 group: 'nodes',
-                data: { 
+                data: {
                     id: `group_${origine}`,
                     type: 'group',
                     color: groupColors[origine] || groupColors.default
@@ -116,8 +122,8 @@ async function loadGraph() {
             const parent = node.origine ? `group_${node.origine}` : undefined;
             cy.add({
                 group: 'nodes',
-                data: { 
-                    id: node.id, 
+                data: {
+                    id: node.id,
                     label: node.id,
                     parent: parent
                 },
@@ -148,7 +154,7 @@ async function loadGraph() {
 // Fonction pour calculer une position automatique
 async function calculateAutoPosition() {
     try {
-        const res = await fetch("http://localhost:3000/graph");
+        const res = await fetch(`${API_BASE}/graph`);
         const data = await res.json();
 
         if (!data.nodes || data.nodes.length === 0) {
@@ -198,7 +204,7 @@ async function addPerson(nom, origine, x, y) {
         y = pos.y;
     }
 
-    const res = await fetch("http://localhost:3000/person", {
+    const res = await fetch(`${API_BASE}/person`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nom, origine: origine || null, x, y })
@@ -230,7 +236,7 @@ async function addPersonList(noms, origine) {
     let radius = 200;
 
     try {
-        const res = await fetch("http://localhost:3000/graph");
+        const res = await fetch(`${API_BASE}/graph`);
         const data = await res.json();
 
         if (data.nodes && data.nodes.length > 0) {
@@ -266,7 +272,7 @@ async function addPersonList(noms, origine) {
         const y = Math.round(centerY + radius * Math.sin(angle));
 
         try {
-            const res = await fetch("http://localhost:3000/person", {
+            const res = await fetch(`${API_BASE}/person`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -301,12 +307,12 @@ async function addPersonList(noms, origine) {
 
 // Fonction pour supprimer une personne
 async function deletePerson(nom) {
-    const res = await fetch("http://localhost:3000/person", {
+    const res = await fetch(`${API_BASE}/person`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nom })
     });
-    
+
     if (res.ok) {
         alert("Personne supprimée avec succès !");
         loadGraph();
@@ -317,12 +323,12 @@ async function deletePerson(nom) {
 
 // Fonction pour mettre à jour une personne
 async function updatePerson(oldNom, nom, origine) {
-    const res = await fetch("http://localhost:3000/person", {
+    const res = await fetch(`${API_BASE}/person`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ oldNom, nom, origine })
     });
-    
+
     if (res.ok) {
         alert("Personne modifiée avec succès !");
         loadGraph();
@@ -333,12 +339,12 @@ async function updatePerson(oldNom, nom, origine) {
 
 // Fonction pour ajouter une relation
 async function addRelation(source, target, type) {
-    const res = await fetch("http://localhost:3000/relation", {
+    const res = await fetch(`${API_BASE}/relation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source, target, type })
     });
-    
+
     if (res.ok) {
         alert("Relation ajoutée avec succès !");
         loadGraph();
@@ -349,12 +355,12 @@ async function addRelation(source, target, type) {
 
 // Fonction pour supprimer une relation
 async function deleteRelation(source, target, type) {
-    const res = await fetch("http://localhost:3000/relation", {
+    const res = await fetch(`${API_BASE}/relation`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source, target, type })
     });
-    
+
     if (res.ok) {
         alert("Relation supprimée avec succès !");
         loadGraph();
@@ -367,16 +373,16 @@ async function deleteRelation(source, target, type) {
 async function dissolveGroup(members) {
     let successCount = 0;
     let errorCount = 0;
-    
+
     for (const member of members) {
         const nom = member.data('id');
         try {
-            const res = await fetch("http://localhost:3000/person", {
+            const res = await fetch(`${API_BASE}/person`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ oldNom: nom, nom: nom, origine: null })
             });
-            
+
             if (res.ok) {
                 successCount++;
             } else {
@@ -386,7 +392,7 @@ async function dissolveGroup(members) {
             errorCount++;
         }
     }
-    
+
     alert(`Groupe dissous : ${successCount} membres mis à jour, ${errorCount} erreurs`);
     loadGraph();
 }
@@ -397,7 +403,7 @@ async function deleteAll() {
         return;
     }
 
-    const res = await fetch("http://localhost:3000/all", {
+    const res = await fetch(`${API_BASE}/all`, {
         method: "DELETE"
     });
 
@@ -411,43 +417,182 @@ async function deleteAll() {
 
 // Fonction pour sauvegarder les coordonnées d'un nœud
 async function saveNodePosition(nom, x, y) {
-    await fetch("http://localhost:3000/person/coordinates", {
+    await fetch(`${API_BASE}/person/coordinates`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nom, x: Math.round(x), y: Math.round(y) })
     });
 }
 
-// Event listener pour le drag and drop des nœuds
+// --- Propositions (mode collaborateur) ---
+async function submitProposal(type, data) {
+    const authorName = document.getElementById("author-name")?.value?.trim();
+    if (isProposeMode && (!authorName || !authorName.length)) {
+        alert("Indiquez votre nom pour proposer une modification.");
+        return;
+    }
+    const authorEmail = document.getElementById("author-email")?.value?.trim() || null;
+    try {
+        const res = await fetch(`${API_BASE}/proposals`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ authorName: authorName || "Anonyme", authorEmail, type, data })
+        });
+        const json = await res.json();
+        if (res.ok) {
+            alert("Proposition envoyée. Elle sera validée par l'administrateur.");
+            loadProposalStats();
+        } else {
+            alert("Erreur : " + (json.error || json.details || "envoi impossible"));
+        }
+    } catch (e) {
+        alert("Erreur réseau : " + e.message);
+    }
+}
+
+async function loadProposalStats() {
+    if (!isProposeMode) return;
+    try {
+        const res = await fetch(`${API_BASE}/proposals/stats`);
+        const data = await res.json();
+        const el = document.getElementById("proposal-stats");
+        if (el) el.textContent = `${data.pending || 0} proposition(s) en attente`;
+    } catch (_) { }
+}
+
+async function loadPendingProposals() {
+    try {
+        const res = await fetch(`${API_BASE}/proposals?status=pending`);
+        const list = await res.json();
+        const container = document.getElementById("proposals-list");
+        if (!container) return;
+        container.innerHTML = "";
+        if (list.length === 0) {
+            container.innerHTML = "<p class=\"proposal-stats\">Aucune proposition en attente.</p>";
+            return;
+        }
+        list.forEach(p => {
+            const card = document.createElement("div");
+            card.className = "proposal-card";
+            const typeLabel = { add_node: "Ajouter personne", add_relation: "Ajouter relation", modify_node: "Modifier personne", delete_node: "Supprimer personne", delete_relation: "Supprimer relation" }[p.type] || p.type;
+            const dataStr = typeof p.data === "object" ? JSON.stringify(p.data) : p.data;
+            card.innerHTML = `
+                <div class="proposal-meta">${p.authorName} · ${typeLabel}</div>
+                <div>${dataStr}</div>
+                <div class="proposal-actions">
+                    <button class="approve" data-id="${p.id}">Approuver</button>
+                    <button class="reject" data-id="${p.id}">Rejeter</button>
+                </div>`;
+            container.appendChild(card);
+        });
+        container.querySelectorAll("button.approve").forEach(btn => {
+            btn.addEventListener("click", () => approveProposal(btn.dataset.id));
+        });
+        container.querySelectorAll("button.reject").forEach(btn => {
+            btn.addEventListener("click", () => rejectProposal(btn.dataset.id));
+        });
+    } catch (e) {
+        console.error(e);
+        const container = document.getElementById("proposals-list");
+        if (container) container.innerHTML = "<p>Erreur chargement propositions.</p>";
+    }
+}
+
+async function approveProposal(id) {
+    const reviewedBy = prompt("Votre nom (reviewer) :", "Admin") || "Admin";
+    try {
+        const res = await fetch(`${API_BASE}/proposals/${id}/approve`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reviewedBy })
+        });
+        if (res.ok) {
+            alert("Proposition approuvée.");
+            loadGraph();
+            loadPendingProposals();
+        } else {
+            const j = await res.json();
+            alert("Erreur : " + (j.error || j.details || "inconnu"));
+        }
+    } catch (e) {
+        alert("Erreur : " + e.message);
+    }
+}
+
+async function rejectProposal(id) {
+    const comment = prompt("Commentaire (optionnel) :");
+    const reviewedBy = prompt("Votre nom (reviewer) :", "Admin") || "Admin";
+    try {
+        const res = await fetch(`${API_BASE}/proposals/${id}/reject`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reviewedBy, comment: comment || null })
+        });
+        if (res.ok) {
+            alert("Proposition rejetée.");
+            loadPendingProposals();
+        } else {
+            const j = await res.json();
+            alert("Erreur : " + (j.error || j.details || "inconnu"));
+        }
+    } catch (e) {
+        alert("Erreur : " + e.message);
+    }
+}
+
+function applyProposeModeUI() {
+    const authorSection = document.getElementById("propose-author-section");
+    const adminSection = document.getElementById("proposals-admin-section");
+    const deleteAllBtn = document.getElementById("delete-all");
+    const importBtn = document.getElementById("import");
+    if (isProposeMode) {
+        if (authorSection) authorSection.style.display = "block";
+        if (adminSection) adminSection.style.display = "none";
+        if (deleteAllBtn) deleteAllBtn.style.display = "none";
+        if (importBtn) importBtn.style.display = "none";
+        loadProposalStats();
+    } else {
+        if (authorSection) authorSection.style.display = "none";
+        if (adminSection) adminSection.style.display = "block";
+        if (deleteAllBtn) deleteAllBtn.style.display = "block";
+        if (importBtn) importBtn.style.display = "block";
+        loadPendingProposals();
+    }
+}
+
+// Event listener pour le drag and drop des nœuds (ne pas sauver en mode proposition)
 cy.on('dragfree', 'node', function (evt) {
+    if (isProposeMode) return;
     const node = evt.target;
     const position = node.position();
     const nom = node.data('id');
-
-    console.log(`Nœud ${nom} déplacé vers (${position.x}, ${position.y})`);
     saveNodePosition(nom, position.x, position.y);
 });
 
 // Event listener pour ajouter un nœud en cliquant sur le fond
 cy.on('click', function (evt) {
-    // Vérifier que le clic est sur le fond (pas sur un nœud ou une arête)
-    if (evt.target === cy) {
-        const position = evt.position;
-        const nom = prompt("Nom de la personne :");
-
-        if (nom && nom.trim()) {
-            const origine = prompt("Origine (optionnel, appuyez sur Entrée pour ignorer) :");
-            addPerson(nom.trim(), origine ? origine.trim() : null,
-                Math.round(position.x), Math.round(position.y));
-        }
+    if (evt.target !== cy) return;
+    const position = evt.position;
+    const nom = prompt("Nom de la personne :");
+    if (!nom || !nom.trim()) return;
+    const origine = prompt("Origine (optionnel, appuyez sur Entrée pour ignorer) :");
+    if (isProposeMode) {
+        submitProposal("add_node", {
+            nom: nom.trim(),
+            origine: origine ? origine.trim() : null,
+            x: Math.round(position.x),
+            y: Math.round(position.y)
+        });
+    } else {
+        addPerson(nom.trim(), origine ? origine.trim() : null, Math.round(position.x), Math.round(position.y));
     }
 });
 
 // Event listener pour modifier/supprimer un nœud en double-cliquant dessus
-cy.on('dbltap', 'node[!type]', function(evt) {
+cy.on('dbltap', 'node[!type]', function (evt) {
     const node = evt.target;
     const nom = node.data('id');
-    
+
     const action = prompt(
         `Nœud: ${nom}\n\n` +
         `Tapez:\n` +
@@ -455,31 +600,37 @@ cy.on('dbltap', 'node[!type]', function(evt) {
         `- "m" ou "modifier" pour modifier\n` +
         `- Entrée pour annuler`
     );
-    
+
     if (!action) return;
-    
+
     const actionLower = action.toLowerCase().trim();
-    
+
     if (actionLower === 's' || actionLower === 'supprimer') {
-        if (confirm(`Voulez-vous vraiment supprimer "${nom}" ?`)) {
+        if (!confirm(`Voulez-vous vraiment supprimer "${nom}" ?`)) return;
+        if (isProposeMode) {
+            submitProposal("delete_node", { nom });
+        } else {
             deletePerson(nom);
         }
     } else if (actionLower === 'm' || actionLower === 'modifier') {
         const newNom = prompt(`Nouveau nom (actuel: ${nom}) :`, nom);
-        if (newNom && newNom.trim()) {
-            const newOrigine = prompt(`Nouvelle origine (laissez vide pour aucune) :`);
+        if (!newNom || !newNom.trim()) return;
+        const newOrigine = prompt(`Nouvelle origine (laissez vide pour aucune) :`);
+        if (isProposeMode) {
+            submitProposal("modify_node", { nom, newNom: newNom.trim(), newOrigine: newOrigine ? newOrigine.trim() : null });
+        } else {
             updatePerson(nom, newNom.trim(), newOrigine ? newOrigine.trim() : null);
         }
     }
 });
 
 // Event listener pour modifier/supprimer une relation en double-cliquant dessus
-cy.on('dbltap', 'edge', function(evt) {
+cy.on('dbltap', 'edge', function (evt) {
     const edge = evt.target;
     const source = edge.data('source');
     const target = edge.data('target');
-    const type = edge.id().split('_').pop(); // Extraire le type du dernier segment de l'ID
-    
+    const type = edge.id().split('_').pop();
+
     const action = prompt(
         `Relation: ${source} → ${target} (${type})\n\n` +
         `Tapez:\n` +
@@ -487,34 +638,40 @@ cy.on('dbltap', 'edge', function(evt) {
         `- "f" "a" ou "m" pour changer le type (FAMILLE, AMIS, AMOUR)\n` +
         `- Entrée pour annuler`
     );
-    
+
     if (!action) return;
-    
+
     const actionLower = action.toLowerCase().trim();
-    
+
     if (actionLower === 's' || actionLower === 'supprimer') {
-        if (confirm(`Voulez-vous vraiment supprimer cette relation ?`)) {
+        if (!confirm(`Voulez-vous vraiment supprimer cette relation ?`)) return;
+        if (isProposeMode) {
+            submitProposal("delete_relation", { source, target, type });
+        } else {
             deleteRelation(source, target, type);
         }
     } else if (actionLower === 'f' || actionLower === 'a' || actionLower === 'm') {
-        const newType = actionLower === 'f' ? 'FAMILLE' : 
-                       actionLower === 'a' ? 'AMIS' : 'AMOUR';
-        
-        // Supprimer l'ancienne et créer la nouvelle
-        deleteRelation(source, target, type);
-        setTimeout(() => addRelation(source, target, newType), 500);
+        const newType = actionLower === 'f' ? 'FAMILLE' : actionLower === 'a' ? 'AMIS' : 'AMOUR';
+        if (isProposeMode) {
+            submitProposal("delete_relation", { source, target, type });
+            submitProposal("add_relation", { source, target, type: newType });
+        } else {
+            deleteRelation(source, target, type);
+            setTimeout(() => addRelation(source, target, newType), 500);
+        }
     }
 });
 
 // Event listener pour les groupes en double-cliquant dessus
-cy.on('dbltap', 'node[type="group"]', function(evt) {
+cy.on('dbltap', 'node[type="group"]', function (evt) {
+    if (isProposeMode) {
+        alert("Seul l'administrateur peut dissoudre un groupe.");
+        return;
+    }
     const group = evt.target;
     const groupName = group.data('id').replace('group_', '');
-    
-    // Compter les membres du groupe
     const members = cy.nodes(`[parent="${group.data('id')}"]`);
     const memberNames = members.map(n => n.data('id')).join(', ');
-    
     const action = prompt(
         `Groupe: ${groupName}\n` +
         `Membres (${members.length}): ${memberNames}\n\n` +
@@ -522,11 +679,8 @@ cy.on('dbltap', 'node[type="group"]', function(evt) {
         `- "d" ou "dissoudre" pour retirer l'origine de tous les membres\n` +
         `- Entrée pour annuler`
     );
-    
     if (!action) return;
-    
     const actionLower = action.toLowerCase().trim();
-    
     if (actionLower === 'd' || actionLower === 'dissoudre') {
         if (confirm(`Voulez-vous vraiment retirer l'origine "${groupName}" de tous les membres ?`)) {
             dissolveGroup(members);
@@ -536,7 +690,7 @@ cy.on('dbltap', 'node[type="group"]', function(evt) {
 
 // Fonction pour exporter les données
 async function exportData() {
-    const res = await fetch("http://localhost:3000/export");
+    const res = await fetch(`${API_BASE}/export`);
     const data = await res.json();
 
     // Créer un fichier JSON et le télécharger
@@ -566,7 +720,7 @@ async function importData(file) {
                 return;
             }
 
-            const res = await fetch("http://localhost:3000/import", {
+            const res = await fetch(`${API_BASE}/import`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
@@ -590,38 +744,97 @@ async function importData(file) {
 
 // Initialisation après chargement du DOM
 document.addEventListener('DOMContentLoaded', () => {
+    applyProposeModeUI();
+
     // Gestionnaire du formulaire personne
-    document.getElementById('form-person').addEventListener('submit', (e) => {
+    document.getElementById('form-person').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const nom = document.getElementById('nom').value;
-        const origine = document.getElementById('origine').value;
+        const nom = document.getElementById('nom').value.trim();
+        const origine = document.getElementById('origine').value.trim() || null;
         const xVal = document.getElementById('x').value;
         const yVal = document.getElementById('y').value;
-        const x = xVal ? parseInt(xVal) : null;
-        const y = yVal ? parseInt(yVal) : null;
-
+        let x = xVal ? parseInt(xVal) : null;
+        let y = yVal ? parseInt(yVal) : null;
+        if (isProposeMode) {
+            if (x === null || y === null || isNaN(x) || isNaN(y)) {
+                const pos = await calculateAutoPosition();
+                x = pos.x;
+                y = pos.y;
+            }
+            submitProposal("add_node", { nom, origine, x, y });
+            e.target.reset();
+            return;
+        }
         addPerson(nom, origine, x, y);
         e.target.reset();
     });
 
     // Gestionnaire du formulaire liste
-    document.getElementById('form-list').addEventListener('submit', (e) => {
+    document.getElementById('form-list').addEventListener('submit', async (e) => {
         e.preventDefault();
         const noms = document.getElementById('list-noms').value;
-        const origine = document.getElementById('list-origine').value;
-
+        const origine = document.getElementById('list-origine').value.trim() || null;
+        const nomsArray = noms.split(',').map(n => n.trim()).filter(n => n.length > 0);
+        if (nomsArray.length === 0) {
+            alert("Aucun nom valide dans la liste !");
+            return;
+        }
+        if (isProposeMode) {
+            let centerX = 500, centerY = 350, radius = 200;
+            try {
+                const res = await fetch(`${API_BASE}/graph`);
+                const data = await res.json();
+                if (data.nodes && data.nodes.length > 0) {
+                    centerX = data.nodes.reduce((s, n) => s + (n.x || 0), 0) / data.nodes.length;
+                    centerY = data.nodes.reduce((s, n) => s + (n.y || 0), 0) / data.nodes.length;
+                    let maxDist = 0;
+                    data.nodes.forEach(n => {
+                        const d = Math.hypot(n.x - centerX, n.y - centerY);
+                        maxDist = Math.max(maxDist, d);
+                    });
+                    radius = maxDist + 150;
+                }
+            } catch (_) { }
+            let ok = 0;
+            for (let i = 0; i < nomsArray.length; i++) {
+                const angle = (2 * Math.PI * i) / nomsArray.length;
+                const x = Math.round(centerX + radius * Math.cos(angle));
+                const y = Math.round(centerY + radius * Math.sin(angle));
+                try {
+                    const res = await fetch(`${API_BASE}/proposals`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            authorName: document.getElementById("author-name")?.value?.trim() || "Anonyme",
+                            authorEmail: document.getElementById("author-email")?.value?.trim() || null,
+                            type: "add_node",
+                            data: { nom: nomsArray[i], origine, x, y }
+                        })
+                    });
+                    if (res.ok) ok++;
+                } catch (_) { }
+            }
+            alert(ok + " proposition(s) envoyée(s).");
+            document.getElementById('list-noms').value = '';
+            loadProposalStats();
+            loadGraph();
+            return;
+        }
         addPersonList(noms, origine);
-        // Reset seulement le textarea des noms
         document.getElementById('list-noms').value = '';
     });
 
     // Gestionnaire du formulaire relation
     document.getElementById('form-relation').addEventListener('submit', (e) => {
         e.preventDefault();
-        const source = document.getElementById('source-nom').value;
-        const target = document.getElementById('target-nom').value;
+        const source = document.getElementById('source-nom').value.trim();
+        const target = document.getElementById('target-nom').value.trim();
         const type = document.getElementById('type').value;
-
+        if (isProposeMode) {
+            submitProposal("add_relation", { source, target, type });
+            e.target.reset();
+            return;
+        }
         addRelation(source, target, type);
         e.target.reset();
     });
@@ -663,6 +876,9 @@ document.addEventListener('DOMContentLoaded', () => {
             e.target.value = ''; // Reset input
         }
     });
+
+    // Rafraîchir les propositions (admin)
+    document.getElementById('refresh-proposals').addEventListener('click', loadPendingProposals);
 
     // Bouton pour afficher/cacher le menu
     document.getElementById('toggle-sidebar').addEventListener('click', () => {

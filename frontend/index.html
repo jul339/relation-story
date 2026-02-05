@@ -15,6 +15,15 @@
 
     <div id="main-container">
         <div id="sidebar">
+            <!-- Mode collaborateur : nom de l'auteur -->
+            <div id="propose-author-section" class="form-section" style="display: none;">
+                <h3>Proposer des modifications</h3>
+                <p class="propose-hint">Vos ajouts seront soumis pour validation.</p>
+                <input type="text" id="author-name" placeholder="Votre nom" required>
+                <input type="text" id="author-email" placeholder="Votre email (optionnel)">
+                <p id="proposal-stats" class="proposal-stats"></p>
+            </div>
+
             <!-- Formulaire pour ajouter une personne -->
             <div class="form-section">
                 <h3>Ajouter une personne</h3>
@@ -31,7 +40,8 @@
             <div class="form-section">
                 <h3>Ajouter une liste</h3>
                 <form id="form-list">
-                    <textarea id="list-noms" placeholder="Noms séparés par des virgules&#10;Ex: Jean, Marie, Paul" rows="3" required></textarea>
+                    <textarea id="list-noms" placeholder="Noms séparés par des virgules&#10;Ex: Jean, Marie, Paul"
+                        rows="3" required></textarea>
                     <input type="text" id="list-origine" placeholder="Origine (optionnel)">
                     <button type="submit">Ajouter liste</button>
                     <small style="color: #666;">Les positions sont calculées automatiquement</small>
@@ -67,6 +77,13 @@
                 <h3>Actions</h3>
                 <button id="refresh" class="action-btn">Rafraîchir</button>
                 <button id="delete-all" class="action-btn danger">Tout supprimer</button>
+            </div>
+
+            <!-- Propositions en attente (admin) -->
+            <div id="proposals-admin-section" class="form-section" style="display: none;">
+                <h3>Propositions en attente</h3>
+                <button id="refresh-proposals" class="action-btn">Rafraîchir</button>
+                <div id="proposals-list"></div>
             </div>
 
             <!-- Sauvegarde et restauration -->

@@ -1,16 +1,19 @@
 # Relation Story - Project Rules
 
 ## Project Overview
+
 Application web de visualisation de graphe de relations entre personnes, utilisant Neo4j pour la base de données graphe et Cytoscape.js pour l'affichage interactif.
 
 ## Stack Technique
+
 - **Backend**: Node.js + Express (port 3000)
 - **Frontend**: HTML/CSS/JavaScript vanilla + Cytoscape.js (port 8080)
 - **Database**: Neo4j 5 (ports 7474/7687)
 - **Deployment**: Docker Compose
 
 ## Structure du Projet
-```
+
+```.md
 relation-story/
 ├── backend/
 │   ├── index.js         # API Express avec tous les endpoints
@@ -24,18 +27,22 @@ relation-story/
 ```
 
 ## Modèle de Données
+
 ### Nœud Person
+
 - `nom` (string, unique, required) - Identifiant unique de la personne
 - `origine` (string, optional) - Origine de la personne
 - `x` (number, required) - Position X dans le graphe
 - `y` (number, required) - Position Y dans le graphe
 
 ### Relations
+
 - `FAMILLE` (bleu)
 - `AMIS` (vert)
 - `AMOUR` (rouge)
 
 ## API Endpoints
+
 - `GET /graph` - Récupère tous les nœuds et relations
 - `POST /person` - Crée une personne (nom, origine?, x, y)
 - `DELETE /person` - Supprime une personne (nom)
@@ -47,6 +54,7 @@ relation-story/
 - `POST /import` - Importe données depuis JSON
 
 ## Fonctionnalités Frontend
+
 - **Création** : formulaire, liste CSV, clic sur graphe
 - **Modification** : double-clic sur nœuds/relations/groupes
 - **Positions auto** : calcul intelligent basé sur nœuds existants
@@ -59,6 +67,7 @@ relation-story/
 - **Flèches optimisées** : 2px, s'arrêtent avant nœuds
 
 ## Démarrage
+
 ```bash
 # 1. Démarrer Neo4j
 docker-compose up -d
@@ -71,6 +80,7 @@ cd frontend && python3 -m http.server 8080
 ```
 
 ## Conventions
+
 - Coordonnées obligatoires pour chaque nœud
 - Nom unique par personne (pas de prénom)
 - Origine optionnelle

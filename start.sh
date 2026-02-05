@@ -6,7 +6,11 @@ DOCKER_COMPOSE="docker-compose"
 # Neo4j : démarrer si pas déjà en cours
 if ! $DOCKER_COMPOSE ps --status running -q neo4j 2>/dev/null | grep -q .; then
   echo "Démarrage de Neo4j..."
-  $DOCKER_COMPOSE up -d
+  if ! $DOCKER_COMPOSE up -d 2>&1; then
+    echo "Recréation du réseau..."
+    $DOCKER_COMPOSE down
+    $DOCKER_COMPOSE up -d
+  fi
   sleep 3
 fi
 
