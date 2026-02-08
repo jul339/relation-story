@@ -10,27 +10,26 @@ Application web permettant de créer et visualiser un graphe de relations entre 
 
 **Fichier principal**: `backend/index.js`
 
-- Port: 3000
-- CORS activé pour toutes origines
-- Connexion Neo4j via `neo4j.js`
+- Port: `process.env.PORT` (défaut 3000)
+- CORS: `process.env.CORS_ORIGIN` (défaut `*` en dev)
+- Connexion Neo4j via `neo4j.js` (variables d’environnement, voir ci‑dessous)
 - Module snapshots : `backend/snapshots.js` (création/liste/restauration de versions JSON)
 - Dossier `backend/snapshots/` : fichiers JSON des versions (format `snapshot-{timestamp}-{id}.json`)
 
 **Configuration Neo4j**: `backend/neo4j.js`
 
-- URI: bolt://localhost:7687
-- User: neo4j
-- Password: password
+- Lit `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` (défauts locaux : bolt://localhost:7687, neo4j, password)
+- En production (ex. Neo4j Aura) : définir ces variables dans `.env` ou chez l’hébergeur
 
 ### Frontend (HTML/CSS/JS + Cytoscape.js)
 
 **Fichiers**:
 
 - `frontend/index.html` - Structure avec formulaires et conteneur graphe
-- `frontend/renderer.js` - Initialisation Cytoscape, gestion événements, API calls
+- `frontend/renderer.js` - Initialisation Cytoscape, gestion événements, API calls. `API_BASE` : en dev (localhost:8080) → `http://localhost:3000`, sinon `window.location.origin` (prod même domaine).
 - `frontend/style.css` - Styles responsive avec sidebar toggleable
 
-**Serveur**: Python HTTP server sur port 8080
+**Serveur**: Python HTTP server sur port 8080 (dev local)
 
 ### Base de données (Neo4j 5)
 
@@ -283,6 +282,24 @@ Accès:
 - Backend API: <http://localhost:3000>
 - Neo4j Browser: <http://localhost:7474>
 
+## 🔧 Environnement (dev / production)
+
+- **Fichier `.env`** à la **racine du projet** (optionnel en dev). Le backend charge ce fichier via `dotenv` (dépendance dans `backend/package.json`).
+- **`.env.example`** à la racine liste les variables possibles ; copier en `.env` et adapter. Ne pas commiter `.env` (déjà dans `.gitignore`).
+
+**Variables d’environnement (backend)**:
+
+| Variable        | Défaut (dev local)     | Production (ex.)                          |
+|----------------|------------------------|-------------------------------------------|
+| `NEO4J_URI`    | bolt://localhost:7687  | neo4j+s://xxx.databases.neo4j.io (Aura)   |
+| `NEO4J_USER`   | neo4j                  | neo4j                                     |
+| `NEO4J_PASSWORD` | password             | mot de passe Aura                          |
+| `PORT`         | 3000                   | fourni par l’hébergeur (Render, etc.)     |
+| `CORS_ORIGIN`  | *                      | https://ton-frontend.com (origine du front) |
+
+- **Sans `.env`** : le backend utilise les défauts ci‑dessus (Neo4j local, port 3000, CORS `*`).
+- **Frontend** : en production, si le front est servi depuis le **même domaine** que l’API, `API_BASE = window.location.origin` suffit. Sinon (front et API sur domaines différents), il faudrait adapter la logique dans `renderer.js` (ex. URL en dur ou endpoint de config).
+
 ## 📝 Points Importants pour l'IA
 
 ### Historique des Changements
@@ -304,6 +321,7 @@ Accès:
 - **Snapshots**: Fichiers JSON dans backend/snapshots/, création auto à chaque approbation, GET/POST /snapshots et restore
 - **Frontend mode propose**: URL `?mode=propose`, soumission de propositions, section admin "Propositions en attente"
 - **Tests backend**: Suite Jest dans backend/**tests** (person, relation, proposals, snapshots, export-import), `npm test`
+- **Environnement**: `.env` à la racine (optionnel), dotenv dans le backend ; NEO4J_*, PORT, CORS_ORIGIN ; frontend API_BASE = localhost:8080 → localhost:3000, sinon origin
 
 ### Patterns de Code
 
@@ -329,5 +347,5 @@ Accès:
 - Console.log pour debugging (visible avec F12)
 - Alerts pour feedback utilisateur
 - JSON pretty-print pour export (indent: 2)
-- Backend : constante `API_BASE` dans renderer.js pour les appels fetch
+- Backend : `API_BASE` dans renderer.js déduit selon l’origine (dev local vs prod, voir section Environnement)
 - Tests : Jest + supertest, ES modules avec `NODE_OPTIONS=--experimental-vm-modules`, `beforeEach` clearDatabase

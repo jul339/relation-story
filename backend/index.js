@@ -1,7 +1,13 @@
+import path from "path";
+import { fileURLToPath } from "url";
+import dotenv from "dotenv";
 import express from "express";
 import crypto from "crypto";
 import { runQuery } from "./neo4j.js";
 import { initSnapshotsDir, createSnapshot, listSnapshots, getSnapshotById, restoreSnapshot } from "./snapshots.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const app = express();
 app.use(express.json());
@@ -9,8 +15,9 @@ app.use(express.json());
 // Initialiser le dossier snapshots au démarrage
 initSnapshotsDir();
 
+const corsOrigin = process.env.CORS_ORIGIN || "*";
 app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*'); // autorise toutes les origines
+    res.setHeader("Access-Control-Allow-Origin", corsOrigin);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') {
@@ -158,11 +165,11 @@ app.delete("/person", async (req, res) => {
 });
 
 /* ---------- DELETE ALL ---------- */
-app.delete("/all", async (req, res) => {
-    const query = `MATCH (n) DETACH DELETE n`;
-    await runQuery(query);
-    res.json({ message: "Tous les nœuds et relations ont été supprimés" });
-});
+// app.delete("/all", async (req, res) => {
+//     const query = `MATCH (n) DETACH DELETE n`;
+//     await runQuery(query);
+//     res.json({ message: "Tous les nœuds et relations ont été supprimés" });
+// });
 
 /* ---------- EXPORT ---------- */
 app.get("/export", async (req, res) => {
@@ -736,9 +743,10 @@ app.post("/snapshots/restore/:id", async (req, res) => {
 
 /* ---------- START SERVER ---------- */
 // N'écouter que si ce n'est pas un test
-if (process.env.NODE_ENV !== 'test') {
-    app.listen(3000, () => {
-        console.log("Backend running on http://localhost:3000");
+const PORT = process.env.PORT || 3000;
+if (process.env.NODE_ENV !== "test") {
+    app.listen(PORT, () => {
+        console.log(`Backend running on port ${PORT}`);
     });
 }
 

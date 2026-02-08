@@ -1,4 +1,7 @@
-const API_BASE = "http://localhost:3000";
+const API_BASE =
+    window.location.hostname === "localhost" && window.location.port === "8080"
+        ? "http://localhost:3000"
+        : window.location.origin;
 
 // Mode collaborateur : ?mode=propose dans l'URL
 const urlParams = new URLSearchParams(window.location.search);
