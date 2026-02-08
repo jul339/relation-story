@@ -4,12 +4,14 @@ Suite de tests d'intégration pour l'API backend.
 
 ## Prérequis
 
-1. **Neo4j doit être démarré** :
+1. **Neo4j** : les tests utilisent la **même** Neo4j que le dev (docker-compose, port 7687). Un seul conteneur, ce qui évite les erreurs ECONNRESET sous WSL.
 
    ```bash
    cd /home/jules/relation-story
    docker-compose up -d
    ```
+
+   Les tests nettoient la base avant chaque suite. Pour utiliser une autre instance : `NEO4J_URI=bolt://127.0.0.1:7688 npm test`.
 
 2. **Dépendances installées** :
 
@@ -61,6 +63,7 @@ npm test -- --coverage
 
 ## Notes importantes
 
+- **Même base que le dev** : tests et app utilisent Neo4j sur **7687** (docker-compose). Sous WSL, un seul conteneur évite les ECONNRESET.
 - **Base de données nettoyée** : Chaque test nettoie la base avant de s'exécuter
 - **Isolation** : Les tests sont isolés et peuvent être lancés dans n'importe quel ordre
 - **Timeout** : 10 secondes par test (Neo4j peut être lent)
@@ -74,7 +77,7 @@ npm test -- --coverage
 Error: Failed to connect to server
 ```
 
-**Solution** : Démarrer Neo4j avec `docker-compose up -d`
+**Solution** : Démarrer Neo4j avec `docker-compose up -d`, puis lancer `npm test` depuis `backend/`.
 
 ### Tests qui timeout
 

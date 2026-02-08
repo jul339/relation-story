@@ -44,7 +44,8 @@ Application web permettant de créer et visualiser un graphe de relations entre 
 
 - `setup.js` : clearDatabase, createTestPerson, createTestProposal, etc.
 - `person.test.js`, `relation.test.js`, `proposals.test.js`, `snapshots.test.js`, `export-import.test.js`
-- Commande : `npm test` (Jest + supertest, Neo4j réel requis)
+- Commande : `npm test` (Jest + supertest, Neo4j requis).
+- **Base pour les tests** : dev et tests utilisent la même Neo4j (docker-compose, **7687**). Défaut `bolt://127.0.0.1:7687` pour limiter les ECONNRESET sous WSL. Voir `backend/__tests__/README.md`.
 
 ## 📊 Modèle de Données
 
@@ -338,7 +339,7 @@ Accès:
 4. **Sidebar ne réapparaît pas**: Utiliser transform au lieu de margin-left
 5. **Hitbox trop petite**: Augmenter width/height des nœuds (actuellement 60x60)
 6. **Mode propose** : Vérifier URL avec `?mode=propose` ; "Votre nom" requis pour soumettre
-7. **Tests** : Neo4j doit être démarré pour les tests d'intégration (`npm test` dans backend)
+7. **Tests** : Même Neo4j que le dev (7687, docker-compose). `docker-compose up -d` puis `npm test` dans backend. Sous WSL, éviter un second conteneur limite les ECONNRESET.
 
 ### Conventions de Développement
 
