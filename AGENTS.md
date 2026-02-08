@@ -15,11 +15,12 @@ Application web permettant de créer et visualiser un graphe de relations entre 
 - Connexion Neo4j via `neo4j.js` (variables d’environnement, voir ci‑dessous)
 - Module snapshots : `backend/snapshots.js` (création/liste/restauration de versions JSON)
 - Dossier `backend/snapshots/` : fichiers JSON des versions (format `snapshot-{timestamp}-{id}.json`)
+- **Production** : en dehors des tests, le backend sert le frontend en statique (`express.static("../frontend")`) pour un déploiement en une seule URL.
 
 **Configuration Neo4j**: `backend/neo4j.js`
 
-- Lit `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` (défauts locaux : bolt://localhost:7687, neo4j, password)
-- En production (ex. Neo4j Aura) : définir ces variables dans `.env` ou chez l’hébergeur
+- Lit `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` (défaut local : `bolt://127.0.0.1:7687`, neo4j, password)
+- En production (ex. Neo4j Aura) : définir ces variables dans `.env` ou chez l’hébergeur (voir `DEPLOI.md`)
 
 ### Frontend (HTML/CSS/JS + Cytoscape.js)
 
@@ -283,6 +284,11 @@ Accès:
 - Backend API: <http://localhost:3000>
 - Neo4j Browser: <http://localhost:7474>
 
+## 🌐 Hébergement (production)
+
+- **Guide** : `DEPLOI.md` — option économique (Neo4j Aura Free + Render Free), une seule app (backend sert le frontend), variables d’environnement à configurer sur Render.
+- En prod, même origine : l’URL du service (ex. `https://relation-story.onrender.com`) sert à la fois l’API et le frontend ; `API_BASE = window.location.origin` dans le frontend suffit.
+
 ## 🔧 Environnement (dev / production)
 
 - **Fichier `.env`** à la **racine du projet** (optionnel en dev). Le backend charge ce fichier via `dotenv` (dépendance dans `backend/package.json`).
@@ -292,11 +298,11 @@ Accès:
 
 | Variable        | Défaut (dev local)     | Production (ex.)                          |
 |----------------|------------------------|-------------------------------------------|
-| `NEO4J_URI`    | bolt://localhost:7687  | neo4j+s://xxx.databases.neo4j.io (Aura)   |
+| `NEO4J_URI`    | bolt://127.0.0.1:7687 | neo4j+s://xxx.databases.neo4j.io (Aura)   |
 | `NEO4J_USER`   | neo4j                  | neo4j                                     |
 | `NEO4J_PASSWORD` | password             | mot de passe Aura                          |
 | `PORT`         | 3000                   | fourni par l’hébergeur (Render, etc.)     |
-| `CORS_ORIGIN`  | *                      | https://ton-frontend.com (origine du front) |
+| `CORS_ORIGIN`  | *                      | https://ton-app.onrender.com (URL du service si front servi par le backend) |
 
 - **Sans `.env`** : le backend utilise les défauts ci‑dessus (Neo4j local, port 3000, CORS `*`).
 - **Frontend** : en production, si le front est servi depuis le **même domaine** que l’API, `API_BASE = window.location.origin` suffit. Sinon (front et API sur domaines différents), il faudrait adapter la logique dans `renderer.js` (ex. URL en dur ou endpoint de config).
@@ -323,6 +329,7 @@ Accès:
 - **Frontend mode propose**: URL `?mode=propose`, soumission de propositions, section admin "Propositions en attente"
 - **Tests backend**: Suite Jest dans backend/**tests** (person, relation, proposals, snapshots, export-import), `npm test`
 - **Environnement**: `.env` à la racine (optionnel), dotenv dans le backend ; NEO4J_*, PORT, CORS_ORIGIN ; frontend API_BASE = localhost:8080 → localhost:3000, sinon origin
+- **Déploiement**: `DEPLOI.md` — Aura Free + Render ; en prod le backend sert le frontend (une URL), snapshots éphémères sur Render sauf stockage externe
 
 ### Patterns de Code
 

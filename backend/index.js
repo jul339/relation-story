@@ -743,6 +743,11 @@ app.post("/snapshots/restore/:id", async (req, res) => {
     }
 });
 
+// En production : servir le frontend (une seule URL pour tout)
+if (process.env.NODE_ENV !== "test") {
+    app.use(express.static(path.join(__dirname, "..", "frontend")));
+}
+
 /* ---------- START SERVER ---------- */
 // N'écouter que si ce n'est pas un test
 const PORT = process.env.PORT || 3000;
