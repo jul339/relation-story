@@ -76,6 +76,32 @@ const cy = cytoscape({
                 'source-distance-from-node': 20, // Distance du nœud cible
                 'z-index': 1                    // Edges en dessous des nœuds
             }
+        },
+        {
+            selector: 'node.pending',
+            style: {
+                'opacity': 0.5,
+                'text-opacity': 0.8
+            }
+        },
+        {
+            selector: 'edge.pending',
+            style: {
+                'opacity': 0.45,
+                'line-style': 'dashed'
+            }
+        },
+        {
+            selector: 'node.pending-delete',
+            style: { 'opacity': 0.4 }
+        },
+        {
+            selector: 'edge.pending-delete',
+            style: { 'opacity': 0.35, 'line-style': 'dashed' }
+        },
+        {
+            selector: 'node.pending-modify',
+            style: { 'opacity': 0.6 }
         }
     ],
     layout: { name: 'cose' },
@@ -163,11 +189,71 @@ async function loadGraph() {
             });
         });
 
+        // Afficher les propositions en attente sur le graphe (transparence)
+        await loadPendingOnGraph();
+
         // Utiliser le layout preset pour respecter les coordonnées
         cy.layout({ name: 'preset' }).run();
     } catch (error) {
         console.error("Erreur lors du chargement du graphe:", error);
     }
+}
+
+async function loadPendingOnGraph() {
+    try {
+        const res = await fetch(`${API_BASE}/proposals?status=pending`);
+        const list = await res.json();
+        if (!Array.isArray(list) || list.length === 0) return;
+
+        list.forEach(p => {
+            const data = p.data || {};
+            if (p.type === "add_node" && data.nom) {
+                if (cy.getElementById(data.nom).length > 0) return;
+                const parent = data.origine && cy.getElementById(`group_${data.origine}`).length > 0 ? `group_${data.origine}` : undefined;
+                cy.add({
+                    group: 'nodes',
+                    data: { id: data.nom, label: data.nom, parent },
+                    position: { x: data.x != null ? data.x : 0, y: data.y != null ? data.y : 0 },
+                    classes: 'pending'
+                });
+            }
+        });
+
+        list.forEach(p => {
+            const data = p.data || {};
+            if (p.type === "add_relation" && data.source && data.target) {
+                if (cy.getElementById(data.source).length === 0 || cy.getElementById(data.target).length === 0) return;
+                const edgeId = `pending_e_${p.id}`;
+                if (cy.getElementById(edgeId).length > 0) return;
+                cy.add({
+                    group: 'edges',
+                    data: {
+                        id: edgeId,
+                        source: data.source,
+                        target: data.target,
+                        color: colors[data.type] || 'black'
+                    },
+                    classes: 'pending'
+                });
+            }
+        });
+
+        list.forEach(p => {
+            const data = p.data || {};
+            if (p.type === "modify_node" && data.nom) {
+                const node = cy.getElementById(data.nom);
+                if (node.length) node.addClass('pending-modify');
+            }
+            if (p.type === "delete_node" && data.nom) {
+                const node = cy.getElementById(data.nom);
+                if (node.length) node.addClass('pending-delete');
+            }
+            if (p.type === "delete_relation" && data.source && data.target && data.type) {
+                const edge = cy.getElementById(`${data.source}_${data.target}_${data.type}`);
+                if (edge.length) edge.addClass('pending-delete');
+            }
+        });
+    } catch (_) { }
 }
 
 // Fonction pour calculer une position automatique
