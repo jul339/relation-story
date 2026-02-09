@@ -54,8 +54,10 @@
             <div class="form-section">
                 <h3>Ajouter une relation</h3>
                 <form id="form-relation">
-                    <input type="text" id="source-nom" placeholder="Nom source" required>
-                    <input type="text" id="target-nom" placeholder="Nom cible" required>
+                    <input type="text" id="source-nom" placeholder="Tapez puis choisir dans la liste" required autocomplete="off">
+                    <div id="source-suggestions" class="name-suggestions" role="listbox"></div>
+                    <input type="text" id="target-nom" placeholder="Tapez puis choisir dans la liste" required autocomplete="off">
+                    <div id="target-suggestions" class="name-suggestions" role="listbox"></div>
                     <select id="type" required>
                         <option value="">-- Type de relation --</option>
                         <option value="FAMILLE">Famille</option>

@@ -105,6 +105,33 @@ form textarea {
     margin: -6px 0 10px 0;
 }
 
+.name-suggestions {
+    display: none;
+    margin: -2px 0 10px 0;
+    padding: 4px 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    max-height: 180px;
+    overflow-y: auto;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.name-suggestions.show {
+    display: block;
+}
+
+.name-suggestions .suggestion-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    list-style: none;
+}
+
+.name-suggestions .suggestion-item:hover {
+    background: #e8f4e8;
+}
+
 form button,
 .action-btn {
     width: 100%;

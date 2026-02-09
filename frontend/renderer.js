@@ -979,20 +979,80 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('list-noms').value = '';
     });
 
-    // Gestionnaire du formulaire relation
+    // Gestionnaire du formulaire relation (sélection obligatoire dans la liste)
     document.getElementById('form-relation').addEventListener('submit', (e) => {
         e.preventDefault();
-        const source = document.getElementById('source-nom').value.trim();
-        const target = document.getElementById('target-nom').value.trim();
+        const sourceInput = document.getElementById('source-nom');
+        const targetInput = document.getElementById('target-nom');
+        document.getElementById('source-suggestions').classList.remove('show');
+        document.getElementById('target-suggestions').classList.remove('show');
+        if (!sourceInput.dataset.selected || !targetInput.dataset.selected) {
+            alert("Veuillez choisir la source et la cible en cliquant sur un nom dans les listes proposées.");
+            return;
+        }
+        const source = sourceInput.value.trim();
+        const target = targetInput.value.trim();
         const type = document.getElementById('type').value;
         if (isProposeMode) {
             submitProposal("add_relation", { source, target, type });
             e.target.reset();
+            sourceInput.dataset.selected = "";
+            targetInput.dataset.selected = "";
             return;
         }
         addRelation(source, target, type);
         e.target.reset();
+        sourceInput.dataset.selected = "";
+        targetInput.dataset.selected = "";
     });
+
+    // Suggestions de noms existants pour source/cible — sélection obligatoire par clic
+    function setupRelationNameAutocomplete(inputId, containerId) {
+        const input = document.getElementById(inputId);
+        const container = document.getElementById(containerId);
+        let timeout;
+        input.addEventListener("input", () => {
+            delete input.dataset.selected;
+            clearTimeout(timeout);
+            const q = input.value.trim();
+            if (!q) {
+                container.classList.remove("show");
+                container.innerHTML = "";
+                return;
+            }
+            timeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`${API_BASE}/persons/similar?q=${encodeURIComponent(q)}&limit=8`);
+                    const data = await res.json();
+                    container.innerHTML = "";
+                    if (data.similar && data.similar.length > 0) {
+                        data.similar.forEach((nom) => {
+                            const el = document.createElement("div");
+                            el.className = "suggestion-item";
+                            el.textContent = nom;
+                            el.addEventListener("click", () => {
+                                input.value = nom;
+                                input.dataset.selected = "1";
+                                container.classList.remove("show");
+                                container.innerHTML = "";
+                            });
+                            container.appendChild(el);
+                        });
+                        container.classList.add("show");
+                    } else {
+                        container.classList.remove("show");
+                    }
+                } catch (_) {
+                    container.classList.remove("show");
+                }
+            }, 250);
+        });
+        input.addEventListener("blur", () => {
+            setTimeout(() => container.classList.remove("show"), 150);
+        });
+    }
+    setupRelationNameAutocomplete("source-nom", "source-suggestions");
+    setupRelationNameAutocomplete("target-nom", "target-suggestions");
 
     // Contrôles de zoom
     document.getElementById('zoom-in').addEventListener('click', () => {

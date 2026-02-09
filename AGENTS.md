@@ -103,11 +103,11 @@ Response: {
 
 ### GET /persons/similar
 
-Retourne les 3 noms existants les plus proches (distance de Levenshtein) pour éviter les doublons à la saisie.
+Retourne les noms existants les plus proches (distance de Levenshtein). Utilisé pour éviter les doublons (formulaire personne) et pour la sélection source/cible (formulaire relation).
 
 ```json
-Query: ?q=jean
-Response: { "similar": ["Jean DUPONT", "Jeanne MARTIN", "Juan GARCIA"] }
+Query: ?q=jean&limit=8   (limit optionnel, défaut 3, max 15)
+Response: { "similar": ["Jean DUPONT", "Jeanne MARTIN", "Juan GARCIA", ...] }
 ```
 
 ### POST /person
@@ -254,7 +254,7 @@ Response: { "message": "Import réussi", "nodesCount": 5, "edgesCount": 3 }
 3. **Propositions en attente** : section toujours visible avec liste et bouton Rafraîchir. En mode admin : boutons Approuver/Rejeter sur chaque proposition. En mode propose : liste en lecture seule.
 4. **Formulaire Personne** : consigne « Nom en majuscule OBLIGATOIRE, exemple : Jean HEUDE-LEGRANG » ; champ nom (format Prénom NOM, validé par regex) ; sous le champ, affichage des **3 noms les plus proches** existants (GET /persons/similar) pour éviter les doublons ; origine (optionnel), x/y (auto si vide).
 5. **Formulaire Liste** : noms CSV au format Prénom NOM, origine optionnelle (positions auto)
-6. **Formulaire Relation**: source, cible, type
+6. **Formulaire Relation** : source et cible via **sélection obligatoire** : l’utilisateur tape un nom ou le début du nom, une liste de noms existants s’affiche (GET /persons/similar?q=…&limit=8) ; il doit **cliquer** sur un nom pour valider la source et un pour la cible (la saisie libre n’est pas acceptée à l’envoi). Type : select FAMILLE / AMIS / AMOUR.
 7. **Contrôles du graphe**: Zoom +, Zoom -, Ajuster
 8. **Actions**: Rafraîchir, Tout supprimer
 9. **Sauvegarde**: Exporter, Importer
@@ -334,7 +334,8 @@ Accès:
 ### Historique des Changements
 
 - **Format nom** : Prénom NOM obligatoire (regex `^[A-Z][a-z]* [A-Z][A-Z-]*$`), consigne et validation front + backend ; refus 400 si format invalide (POST /person, PATCH /person, approve add_node/modify_node).
-- **Noms similaires** : GET /persons/similar?q=xxx (3 noms les plus proches en Levenshtein), affichés sous le champ nom pour éviter doublons.
+- **Noms similaires** : GET /persons/similar?q=xxx (paramètre optionnel `limit`, défaut 3, max 15). Formulaire personne : 3 noms proches sous le champ ; formulaire relation : jusqu’à 8 suggestions, **sélection obligatoire par clic** (source et cible).
+- **Relations** : source et cible doivent correspondre à des personnes existantes ; validation backend (POST /relation, approve add_relation) → 400 si personne non trouvée. Frontend : message d’erreur API affiché ; formulaire relation impose de choisir dans la liste (clic).
 - **Modèle simplifié** : Anciennement nom+prénom, maintenant nom unique au format Prénom NOM
 - **Coordonnées auto**: Calcul intelligent si non spécifiées
 - **Origine optionnelle**: Peut être null/undefined
@@ -373,6 +374,7 @@ Accès:
 6. **Mode propose** : Vérifier URL avec `?mode=propose` ; "Votre nom" requis pour soumettre
 7. **Tests** : Même Neo4j que le dev (7687, docker-compose). `docker-compose up -d` puis `npm test` dans backend. Les défauts Neo4j sont dans `neo4j.js` (uri/user/password), donc les tests peuvent tourner sans `.env`. Sous WSL, éviter un second conteneur limite les ECONNRESET.
 8. **Nom refusé (400)** : Vérifier le format Prénom NOM (ex. Jean DUPONT), pas uniquement le prénom.
+9. **Relation non envoyée** : Source et cible doivent être choisies en cliquant sur un nom dans les listes (taper puis cliquer) ; la saisie libre n’est pas acceptée.
 
 ### Conventions de Développement
 

@@ -106,6 +106,7 @@ function levenshtein(a, b) {
 app.get("/persons/similar", async (req, res) => {
     try {
         const q = (req.query.q || "").trim().toLowerCase();
+        const limit = Math.min(15, Math.max(1, parseInt(req.query.limit, 10) || 3));
         if (q.length === 0) {
             return res.json({ similar: [] });
         }
@@ -114,7 +115,7 @@ app.get("/persons/similar", async (req, res) => {
         const names = records.map(r => r.get("nom"));
         const withDist = names.map(nom => ({ nom, d: levenshtein(q, nom.toLowerCase()) }));
         withDist.sort((a, b) => a.d - b.d);
-        const similar = withDist.slice(0, 3).map(x => x.nom);
+        const similar = withDist.slice(0, limit).map(x => x.nom);
         res.json({ similar });
     } catch (error) {
         console.error("GET /persons/similar error:", error.message);
