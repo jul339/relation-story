@@ -8,11 +8,6 @@ API_URL="http://localhost:3000"
 echo "🌱 Début du peuplement de la base de données..."
 echo ""
 
-# Supprimer toutes les données existantes
-echo "🗑️  Suppression des données existantes..."
-curl -s -X DELETE "$API_URL/all"
-echo ""
-sleep 1
 
 # Ajouter les personnes
 echo "👥 Ajout des personnes..."

@@ -3,9 +3,10 @@ const API_BASE =
         ? "http://localhost:3000"
         : window.location.origin;
 
-// Mode collaborateur : ?mode=propose dans l'URL
+// Mode collaborateur : ?mode=propose dans l'URL ; en dehors de localhost, seul le mode propose est accessible
+const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const urlParams = new URLSearchParams(window.location.search);
-const isProposeMode = urlParams.get("mode") === "propose";
+const isProposeMode = !isLocalhost || urlParams.get("mode") === "propose";
 
 const colors = {
     FAMILLE: "blue",

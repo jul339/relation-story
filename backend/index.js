@@ -754,6 +754,7 @@ const PORT = process.env.PORT || 3000;
 if (process.env.NODE_ENV !== "test") {
     app.listen(PORT, () => {
         console.log(`Backend running on port ${PORT}`);
+        console.log(`Neo4j: ${process.env.NEO4J_URI || "bolt://127.0.0.1:7687"}`);
     });
 }
 

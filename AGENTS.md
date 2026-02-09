@@ -291,7 +291,7 @@ Accès:
 
 ## 🔧 Environnement (dev / production)
 
-- **Fichier `.env`** à la **racine du projet** (optionnel en dev). Le backend charge ce fichier via `dotenv` (dépendance dans `backend/package.json`).
+- **Fichier `.env`** à la **racine du projet** (optionnel en dev). Le backend charge ce fichier via `dotenv`. Un seul `.env` : commenter/décommenter les lignes NEO4J_* selon dev (Docker) ou prod (Aura). En mode test, dotenv n’est pas chargé (tests utilisent la Neo4j locale).
 - **`.env.example`** à la racine liste les variables possibles ; copier en `.env` et adapter. Ne pas commiter `.env` (déjà dans `.gitignore`).
 
 **Variables d’environnement (backend)**:
@@ -326,7 +326,7 @@ Accès:
 - **Labels protégés**: Fond blanc semi-transparent
 - **Collaboration**: Nœuds Proposal dans Neo4j, endpoints /proposals et /proposals/:id/approve|reject
 - **Snapshots**: Fichiers JSON dans backend/snapshots/, création auto à chaque approbation, GET/POST /snapshots et restore
-- **Frontend mode propose**: URL `?mode=propose`, soumission de propositions, section admin "Propositions en attente"
+- **Frontend mode propose**: URL `?mode=propose`, soumission de propositions, section admin "Propositions en attente". En dehors de localhost (production), seul le mode propose est exposé ; l’admin (Tout supprimer, Importer, validation des propositions) n’est accessible qu’en local.
 - **Tests backend**: Suite Jest dans backend/**tests** (person, relation, proposals, snapshots, export-import), `npm test`
 - **Environnement**: `.env` à la racine (optionnel), dotenv dans le backend ; NEO4J_*, PORT, CORS_ORIGIN ; frontend API_BASE = localhost:8080 → localhost:3000, sinon origin
 - **Déploiement**: `DEPLOI.md` — Aura Free + Render ; en prod le backend sert le frontend (une URL), snapshots éphémères sur Render sauf stockage externe

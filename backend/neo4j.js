@@ -1,6 +1,14 @@
+import path from "path";
+import { fileURLToPath } from "url";
+import dotenv from "dotenv";
 import neo4j from "neo4j-driver";
 
-// Un seul Neo4j (docker-compose, 7687). 127.0.0.1 évite des soucis sous WSL.
+// Charger .env avant de lire les variables (les imports ESM sont évalués avant le reste de index.js)
+if (process.env.NODE_ENV !== "test") {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    dotenv.config({ path: path.join(__dirname, "..", ".env") });
+}
+
 const uri = process.env.NEO4J_URI || "bolt://127.0.0.1:7687";
 const user = process.env.NEO4J_USER || "neo4j";
 const password = process.env.NEO4J_PASSWORD || "password";

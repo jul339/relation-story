@@ -41,7 +41,12 @@ Une seule app (backend + frontend) sur **Render** (gratuit) + base **Neo4j Aura 
 
 6. **Create Web Service**.
 
-Après le premier déploiement, Render te donne une URL du type `https://relation-story-xxxx.onrender.com`. Remplace dans `CORS_ORIGIN` par cette URL exacte, puis redéploie (ou modifie la variable et sauvegarde).
+7. **Mettre à jour CORS_ORIGIN** (après le premier déploiement) :
+   - En haut de la page du service Render, tu vois l’**URL** du site (ex. `https://relation-story-abc12.onrender.com`). Copie-la.
+   - Dans le menu de gauche : **Environment** (Variables d’environnement).
+   - Repère la ligne **CORS_ORIGIN** et clique sur **Edit** (crayon) ou modifie la valeur.
+   - Colle l’URL exacte (ex. `https://relation-story-abc12.onrender.com`), **sans** slash final.
+   - Clique sur **Save Changes**. Render redéploie automatiquement avec la nouvelle variable.
 
 ---
 
@@ -59,6 +64,29 @@ Après le premier déploiement, Render te donne une URL du type `https://relatio
 
 ---
 
-## 5. Snapshots (versions)
+## 5. Admin en local avec Neo4j de production
+
+Pour utiliser le **mode admin** en local sur la base Aura (prod), utilise un **seul** `.env` : commente les lignes Neo4j **dev** (Docker) et décommente celles **prod** (Aura), ou l’inverse selon le cas.
+
+Exemple dans `.env` :
+
+```bash
+# --- Dev (Neo4j Docker local) ---
+# NEO4J_URI=bolt://127.0.0.1:7687
+# NEO4J_USER=neo4j
+# NEO4J_PASSWORD=password
+
+# --- Prod (Aura) — décommenter pour admin local sur prod ---
+NEO4J_URI=neo4j+s://xxxx.databases.neo4j.io
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=ton_mot_de_passe_aura
+```
+
+Puis `cd backend && npm start` et frontend en local sur `http://localhost:8080`. Garde la Neo4j Docker pour les **tests** (`npm test` ne charge pas `.env` et utilise la base locale).
+
+---
+
+## 6. Snapshots (versions)
 
 Les snapshots sont enregistrés dans le **fichier** (`backend/snapshots/`). Sur Render, le disque est éphémère : à chaque redéploiement ou redémarrage, ils sont perdus. Pour les garder, il faudrait plus tard utiliser un stockage externe (ex. S3). Pour un usage léger, tu peux ignorer ou accepter cette limite.
+   
