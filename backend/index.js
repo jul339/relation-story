@@ -30,47 +30,55 @@ app.use((req, res, next) => {
 
 /* ---------- GET GRAPH ---------- */
 app.get("/graph", async (req, res) => {
-    const query = `
+    try {
+        const query = `
     MATCH (p:Person)
     OPTIONAL MATCH (p)-[r]->(q:Person)
     RETURN p, r, q
   `;
 
-    const records = await runQuery(query);
+        const records = await runQuery(query);
 
-    const nodes = {};
-    const edges = [];
+        const nodes = {};
+        const edges = [];
 
-    records.forEach(record => {
-        const p = record.get("p");
-        const q = record.get("q");
-        const r = record.get("r");
+        records.forEach(record => {
+            const p = record.get("p");
+            const q = record.get("q");
+            const r = record.get("r");
 
-        const pId = p.properties.nom;
-        nodes[pId] = {
-            id: pId,
-            ...p.properties
-        };
-
-        if (q && r) {
-            const qId = q.properties.nom;
-            nodes[qId] = {
-                id: qId,
-                ...q.properties
+            const pId = p.properties.nom;
+            nodes[pId] = {
+                id: pId,
+                ...p.properties
             };
 
-            edges.push({
-                source: pId,
-                target: qId,
-                type: r.type
-            });
-        }
-    });
+            if (q && r) {
+                const qId = q.properties.nom;
+                nodes[qId] = {
+                    id: qId,
+                    ...q.properties
+                };
 
-    res.json({
-        nodes: Object.values(nodes),
-        edges
-    });
+                edges.push({
+                    source: pId,
+                    target: qId,
+                    type: r.type
+                });
+            }
+        });
+
+        res.json({
+            nodes: Object.values(nodes),
+            edges
+        });
+    } catch (error) {
+        console.error("GET /graph error:", error.message);
+        res.status(500).json({
+            error: "Erreur lors du chargement du graphe",
+            details: error.message
+        });
+    }
 });
 
 /* ---------- GET PERSON BY NOM ---------- */

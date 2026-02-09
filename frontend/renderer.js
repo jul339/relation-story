@@ -87,7 +87,16 @@ const cy = cytoscape({
 async function loadGraph() {
     try {
         const res = await fetch(`${API_BASE}/graph`);
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            const msg = data.details || data.error || res.statusText;
+            alert("Erreur graphe: " + msg);
+            return;
+        }
+        if (data.error) {
+            alert("Erreur graphe: " + (data.details || data.error));
+            return;
+        }
 
         cy.elements().remove(); // reset graphe
 
