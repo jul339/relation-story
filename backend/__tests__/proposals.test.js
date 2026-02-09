@@ -16,7 +16,7 @@ describe("Proposals Endpoints", () => {
                     authorEmail: "jean@test.com",
                     type: "add_node",
                     data: {
-                        nom: "TestPerson",
+                        nom: "Test PERSON",
                         origine: "Test",
                         x: 100,
                         y: 200
@@ -35,8 +35,8 @@ describe("Proposals Endpoints", () => {
                     authorName: "Jean Test",
                     type: "add_relation",
                     data: {
-                        source: "Jean",
-                        target: "Marie",
+                        source: "Jean DUPONT",
+                        target: "Marie MARTIN",
                         type: "AMIS"
                     }
                 });
@@ -51,8 +51,8 @@ describe("Proposals Endpoints", () => {
                     authorName: "Jean Test",
                     type: "modify_node",
                     data: {
-                        nom: "Jean",
-                        newNom: "Jean-Paul",
+                        nom: "Jean DUPONT",
+                        newNom: "Jean MARTIN",
                         newOrigine: "Sport"
                     }
                 });
@@ -67,7 +67,7 @@ describe("Proposals Endpoints", () => {
                     authorName: "Jean Test",
                     type: "delete_node",
                     data: {
-                        nom: "Jean"
+                        nom: "Jean DUPONT"
                     }
                 });
 
@@ -102,9 +102,8 @@ describe("Proposals Endpoints", () => {
 
     describe("GET /proposals/stats", () => {
         test("should return correct statistics", async () => {
-            // Créer plusieurs propositions
-            await createTestProposal("User1", "add_node", { nom: "Test1", x: 0, y: 0 });
-            await createTestProposal("User2", "add_node", { nom: "Test2", x: 0, y: 0 });
+            await createTestProposal("User1", "add_node", { nom: "Test UN", x: 0, y: 0 });
+            await createTestProposal("User2", "add_node", { nom: "Test DEUX", x: 0, y: 0 });
 
             const response = await request(app).get("/proposals/stats");
 
@@ -126,7 +125,7 @@ describe("Proposals Endpoints", () => {
 
     describe("GET /proposals", () => {
         test("should list pending proposals by default", async () => {
-            await createTestProposal("User1", "add_node", { nom: "Test1", x: 0, y: 0 });
+            await createTestProposal("User1", "add_node", { nom: "Test UN", x: 0, y: 0 });
 
             const response = await request(app).get("/proposals");
 
@@ -137,7 +136,7 @@ describe("Proposals Endpoints", () => {
         });
 
         test("should filter proposals by status", async () => {
-            const proposal = await createTestProposal("User1", "add_node", { nom: "Test1", x: 0, y: 0 });
+            await createTestProposal("User1", "add_node", { nom: "Test UN", x: 0, y: 0 });
 
             // Approuver la proposition directement dans la DB pour le test
             const response = await request(app)
@@ -150,7 +149,7 @@ describe("Proposals Endpoints", () => {
 
     describe("GET /proposals/:id", () => {
         test("should get proposal details", async () => {
-            const proposal = await createTestProposal("User1", "add_node", { nom: "Test1", x: 0, y: 0 });
+            const proposal = await createTestProposal("User1", "add_node", { nom: "Test UN", x: 0, y: 0 });
 
             const response = await request(app).get(`/proposals/${proposal.id}`);
 
@@ -158,7 +157,7 @@ describe("Proposals Endpoints", () => {
             expect(response.body.id).toBe(proposal.id);
             expect(response.body.authorName).toBe("User1");
             expect(response.body.type).toBe("add_node");
-            expect(response.body.data.nom).toBe("Test1");
+            expect(response.body.data.nom).toBe("Test UN");
         });
 
         test("should return 404 for non-existent proposal", async () => {
@@ -172,7 +171,7 @@ describe("Proposals Endpoints", () => {
     describe("POST /proposals/:id/approve", () => {
         test("should approve add_node proposal", async () => {
             const proposal = await createTestProposal("User1", "add_node", {
-                nom: "NewPerson",
+                nom: "New PERSON",
                 origine: "Test",
                 x: 100,
                 y: 200
@@ -189,20 +188,18 @@ describe("Proposals Endpoints", () => {
             expect(response.body.message).toContain("approuvée");
             expect(response.body.snapshotCreated).toBe(true);
 
-            // Vérifier que la personne a été créée
             const persons = await getAllPersons();
             expect(persons).toHaveLength(1);
-            expect(persons[0].nom).toBe("NewPerson");
+            expect(persons[0].nom).toBe("New PERSON");
         });
 
         test("should approve add_relation proposal", async () => {
-            // Créer deux personnes
-            await createTestPerson("Jean", "Famille", 100, 200);
-            await createTestPerson("Marie", "Travail", 300, 400);
+            await createTestPerson("Jean DUPONT", "Famille", 100, 200);
+            await createTestPerson("Marie MARTIN", "Travail", 300, 400);
 
             const proposal = await createTestProposal("User1", "add_relation", {
-                source: "Jean",
-                target: "Marie",
+                source: "Jean DUPONT",
+                target: "Marie MARTIN",
                 type: "AMIS"
             });
 
@@ -248,7 +245,7 @@ describe("Proposals Endpoints", () => {
 
         test("should return 400 if already approved", async () => {
             const proposal = await createTestProposal("User1", "add_node", {
-                nom: "Test",
+                nom: "Test PERSON",
                 origine: "Test",
                 x: 0,
                 y: 0
@@ -272,7 +269,7 @@ describe("Proposals Endpoints", () => {
     describe("POST /proposals/:id/reject", () => {
         test("should reject a proposal", async () => {
             const proposal = await createTestProposal("User1", "add_node", {
-                nom: "Test",
+                nom: "Test PERSON",
                 x: 0,
                 y: 0
             });
@@ -296,7 +293,7 @@ describe("Proposals Endpoints", () => {
 
         test("should return 400 if reviewedBy is missing", async () => {
             const proposal = await createTestProposal("User1", "add_node", {
-                nom: "Test",
+                nom: "Test PERSON",
                 x: 0,
                 y: 0
             });
@@ -311,7 +308,7 @@ describe("Proposals Endpoints", () => {
 
         test("should return 400 if already rejected", async () => {
             const proposal = await createTestProposal("User1", "add_node", {
-                nom: "Test",
+                nom: "Test PERSON",
                 x: 0,
                 y: 0
             });

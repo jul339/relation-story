@@ -24,9 +24,8 @@ describe("Snapshots Endpoints", () => {
 
     describe("POST /snapshots", () => {
         test("should create a manual snapshot", async () => {
-            // Créer quelques données
-            await createTestPerson("Jean", "Famille", 100, 200);
-            await createTestPerson("Marie", "Travail", 300, 400);
+            await createTestPerson("Jean DUPONT", "Famille", 100, 200);
+            await createTestPerson("Marie MARTIN", "Travail", 300, 400);
 
             const response = await request(app)
                 .post("/snapshots")
@@ -67,8 +66,7 @@ describe("Snapshots Endpoints", () => {
 
     describe("GET /snapshots", () => {
         test("should list all snapshots", async () => {
-            // Créer des données et un snapshot
-            await createTestPerson("Jean", "Famille", 100, 200);
+            await createTestPerson("Jean DUPONT", "Famille", 100, 200);
 
             await request(app)
                 .post("/snapshots")
@@ -104,8 +102,7 @@ describe("Snapshots Endpoints", () => {
 
     describe("GET /snapshots/:id", () => {
         test("should download a snapshot", async () => {
-            // Créer des données et un snapshot
-            await createTestPerson("Jean", "Famille", 100, 200);
+            await createTestPerson("Jean DUPONT", "Famille", 100, 200);
 
             const createResponse = await request(app)
                 .post("/snapshots")
@@ -123,7 +120,7 @@ describe("Snapshots Endpoints", () => {
             expect(response.body.message).toBe("Test snapshot");
             expect(response.body.author).toBe("Admin");
             expect(response.body.nodes).toHaveLength(1);
-            expect(response.body.nodes[0].nom).toBe("Jean");
+            expect(response.body.nodes[0].nom).toBe("Jean DUPONT");
         });
 
         test("should return 404 for non-existent snapshot", async () => {
@@ -136,11 +133,9 @@ describe("Snapshots Endpoints", () => {
 
     describe("POST /snapshots/restore/:id", () => {
         test("should restore a snapshot", async () => {
-            // Créer des données initiales
-            await createTestPerson("Jean", "Famille", 100, 200);
-            await createTestPerson("Marie", "Travail", 300, 400);
+            await createTestPerson("Jean DUPONT", "Famille", 100, 200);
+            await createTestPerson("Marie MARTIN", "Travail", 300, 400);
 
-            // Créer un snapshot
             const createResponse = await request(app)
                 .post("/snapshots")
                 .send({
@@ -150,19 +145,16 @@ describe("Snapshots Endpoints", () => {
 
             const snapshotId = createResponse.body.id;
 
-            // Modifier les données
             await request(app)
                 .delete("/person")
-                .send({ nom: "Marie" });
+                .send({ nom: "Marie MARTIN" });
 
-            await createTestPerson("Paul", "Sport", 500, 600);
+            await createTestPerson("Paul BERNARD", "Sport", 500, 600);
 
-            // Vérifier l'état actuel
             let persons = await getAllPersons();
             expect(persons).toHaveLength(2);
-            expect(persons.find(p => p.nom === "Paul")).toBeDefined();
+            expect(persons.find(p => p.nom === "Paul BERNARD")).toBeDefined();
 
-            // Restaurer le snapshot
             const response = await request(app)
                 .post(`/snapshots/restore/${snapshotId}`)
                 .send({
@@ -174,17 +166,15 @@ describe("Snapshots Endpoints", () => {
             expect(response.body.nodesRestored).toBe(2);
             expect(response.body.backupCreated).toBe(true);
 
-            // Vérifier que les données ont été restaurées
             persons = await getAllPersons();
             expect(persons).toHaveLength(2);
-            expect(persons.find(p => p.nom === "Jean")).toBeDefined();
-            expect(persons.find(p => p.nom === "Marie")).toBeDefined();
-            expect(persons.find(p => p.nom === "Paul")).toBeUndefined();
+            expect(persons.find(p => p.nom === "Jean DUPONT")).toBeDefined();
+            expect(persons.find(p => p.nom === "Marie MARTIN")).toBeDefined();
+            expect(persons.find(p => p.nom === "Paul BERNARD")).toBeUndefined();
         });
 
         test("should preserve proposals when restoring", async () => {
-            // Créer une personne et un snapshot
-            await createTestPerson("Jean", "Famille", 100, 200);
+            await createTestPerson("Jean DUPONT", "Famille", 100, 200);
 
             const createResponse = await request(app)
                 .post("/snapshots")
@@ -195,9 +185,8 @@ describe("Snapshots Endpoints", () => {
 
             const snapshotId = createResponse.body.id;
 
-            // Créer une proposition
             await createTestProposal("User1", "add_node", {
-                nom: "Test",
+                nom: "Test PERSON",
                 x: 0,
                 y: 0
             });

@@ -93,6 +93,18 @@ form textarea {
     min-height: 60px;
 }
 
+.nom-consigne {
+    font-size: 12px;
+    color: #333;
+    margin: 0 0 6px 0;
+}
+
+.nom-similar-hint {
+    font-size: 12px;
+    color: #666;
+    margin: -6px 0 10px 0;
+}
+
 form button,
 .action-btn {
     width: 100%;

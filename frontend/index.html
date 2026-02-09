@@ -28,7 +28,9 @@
             <div class="form-section">
                 <h3>Ajouter une personne</h3>
                 <form id="form-person">
-                    <input type="text" id="nom" placeholder="Nom (unique)" required>
+                    <p class="nom-consigne">Nom en majuscule OBLIGATOIRE, exemple : Jean HEUDE-LEGRANG</p>
+                    <input type="text" id="nom" placeholder="Prénom NOM" required>
+                    <p id="nom-similar-hint" class="nom-similar-hint" style="display: none;"></p>
                     <input type="text" id="origine" placeholder="Origine (optionnel)">
                     <input type="number" id="x" placeholder="Position X (auto si vide)">
                     <input type="number" id="y" placeholder="Position Y (auto si vide)">

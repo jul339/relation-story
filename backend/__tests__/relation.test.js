@@ -5,9 +5,8 @@ import { clearDatabase, createTestPerson, createTestRelation } from "./setup.js"
 describe("Relation Endpoints", () => {
     beforeEach(async () => {
         await clearDatabase();
-        // Créer deux personnes pour les tests de relations
-        await createTestPerson("Jean", "Famille", 100, 200);
-        await createTestPerson("Marie", "Travail", 300, 400);
+        await createTestPerson("Jean DUPONT", "Famille", 100, 200);
+        await createTestPerson("Marie MARTIN", "Travail", 300, 400);
     });
 
     describe("POST /relation", () => {
@@ -15,18 +14,17 @@ describe("Relation Endpoints", () => {
             const response = await request(app)
                 .post("/relation")
                 .send({
-                    source: "Jean",
-                    target: "Marie",
+                    source: "Jean DUPONT",
+                    target: "Marie MARTIN",
                     type: "AMIS"
                 });
 
             expect(response.status).toBe(201);
 
-            // Vérifier que la relation existe
             const graph = await request(app).get("/graph");
             expect(graph.body.edges).toHaveLength(1);
-            expect(graph.body.edges[0].source).toBe("Jean");
-            expect(graph.body.edges[0].target).toBe("Marie");
+            expect(graph.body.edges[0].source).toBe("Jean DUPONT");
+            expect(graph.body.edges[0].target).toBe("Marie MARTIN");
             expect(graph.body.edges[0].type).toBe("AMIS");
         });
 
@@ -34,14 +32,13 @@ describe("Relation Endpoints", () => {
             const response = await request(app)
                 .post("/relation")
                 .send({
-                    source: "Jean",
-                    target: "Marie",
+                    source: "Jean DUPONT",
+                    target: "Marie MARTIN",
                     type: "FAMILLE"
                 });
 
             expect(response.status).toBe(201);
 
-            // Vérifier que la relation existe
             const graph = await request(app).get("/graph");
             expect(graph.body.edges[0].type).toBe("FAMILLE");
         });
@@ -50,14 +47,13 @@ describe("Relation Endpoints", () => {
             const response = await request(app)
                 .post("/relation")
                 .send({
-                    source: "Jean",
-                    target: "Marie",
+                    source: "Jean DUPONT",
+                    target: "Marie MARTIN",
                     type: "AMOUR"
                 });
 
             expect(response.status).toBe(201);
 
-            // Vérifier que la relation existe
             const graph = await request(app).get("/graph");
             expect(graph.body.edges[0].type).toBe("AMOUR");
         });
@@ -65,25 +61,21 @@ describe("Relation Endpoints", () => {
 
     describe("DELETE /relation", () => {
         test("should delete a relation", async () => {
-            // Créer une relation
-            await createTestRelation("Jean", "Marie", "AMIS");
+            await createTestRelation("Jean DUPONT", "Marie MARTIN", "AMIS");
 
-            // Vérifier qu'elle existe
             let graph = await request(app).get("/graph");
             expect(graph.body.edges).toHaveLength(1);
 
-            // Supprimer la relation
             const response = await request(app)
                 .delete("/relation")
                 .send({
-                    source: "Jean",
-                    target: "Marie",
+                    source: "Jean DUPONT",
+                    target: "Marie MARTIN",
                     type: "AMIS"
                 });
 
             expect(response.status).toBe(200);
 
-            // Vérifier qu'elle a été supprimée
             graph = await request(app).get("/graph");
             expect(graph.body.edges).toHaveLength(0);
         });
@@ -91,12 +83,10 @@ describe("Relation Endpoints", () => {
 
     describe("GET /graph with relations", () => {
         test("should return graph with multiple relations", async () => {
-            // Créer plusieurs relations
-            await createTestRelation("Jean", "Marie", "AMIS");
+            await createTestRelation("Jean DUPONT", "Marie MARTIN", "AMIS");
 
-            // Créer une troisième personne
-            await createTestPerson("Paul", "Sport", 500, 600);
-            await createTestRelation("Marie", "Paul", "FAMILLE");
+            await createTestPerson("Paul BERNARD", "Sport", 500, 600);
+            await createTestRelation("Marie MARTIN", "Paul BERNARD", "FAMILLE");
 
             const response = await request(app).get("/graph");
 
@@ -104,14 +94,13 @@ describe("Relation Endpoints", () => {
             expect(response.body.nodes).toHaveLength(3);
             expect(response.body.edges).toHaveLength(2);
 
-            // Vérifier les relations
             const amis = response.body.edges.find(e => e.type === "AMIS");
-            expect(amis.source).toBe("Jean");
-            expect(amis.target).toBe("Marie");
+            expect(amis.source).toBe("Jean DUPONT");
+            expect(amis.target).toBe("Marie MARTIN");
 
             const famille = response.body.edges.find(e => e.type === "FAMILLE");
-            expect(famille.source).toBe("Marie");
-            expect(famille.target).toBe("Paul");
+            expect(famille.source).toBe("Marie MARTIN");
+            expect(famille.target).toBe("Paul BERNARD");
         });
     });
 });

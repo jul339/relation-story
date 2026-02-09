@@ -11,6 +11,12 @@ if (process.env.NODE_ENV !== "test") {
     dotenv.config({ path: path.join(__dirname, "..", ".env") });
 }
 
+// Format nom : Prénom NOM (ex. Jean HEUDE-LEGRANG)
+const NOM_REGEX = /^[A-Z][a-z]* [A-Z][A-Z-]*$/;
+function isValidNom(nom) {
+    return typeof nom === "string" && NOM_REGEX.test(nom.trim());
+}
+
 const app = express();
 app.use(express.json());
 
@@ -81,6 +87,41 @@ app.get("/graph", async (req, res) => {
     }
 });
 
+/* ---------- Noms similaires (éviter doublons) ---------- */
+function levenshtein(a, b) {
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b[i - 1] === a[j - 1]) matrix[i][j] = matrix[i - 1][j - 1];
+            else matrix[i][j] = 1 + Math.min(matrix[i - 1][j - 1], matrix[i][j - 1], matrix[i - 1][j]);
+        }
+    }
+    return matrix[b.length][a.length];
+}
+
+app.get("/persons/similar", async (req, res) => {
+    try {
+        const q = (req.query.q || "").trim().toLowerCase();
+        if (q.length === 0) {
+            return res.json({ similar: [] });
+        }
+        const query = `MATCH (p:Person) RETURN p.nom AS nom`;
+        const records = await runQuery(query);
+        const names = records.map(r => r.get("nom"));
+        const withDist = names.map(nom => ({ nom, d: levenshtein(q, nom.toLowerCase()) }));
+        withDist.sort((a, b) => a.d - b.d);
+        const similar = withDist.slice(0, 3).map(x => x.nom);
+        res.json({ similar });
+    } catch (error) {
+        console.error("GET /persons/similar error:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 /* ---------- GET PERSON BY NOM ---------- */
 app.get("/person/:nom", async (req, res) => {
     const { nom } = req.params;
@@ -106,10 +147,14 @@ app.get("/person/:nom", async (req, res) => {
 app.post("/person", async (req, res) => {
     const { nom, origine, x, y } = req.body;
 
-    // Vérifier que le nom et les coordonnées sont obligatoires
     if (!nom) {
         return res.status(400).json({
             error: "Le nom est obligatoire"
+        });
+    }
+    if (!isValidNom(nom)) {
+        return res.status(400).json({
+            error: "Le nom doit être au format Prénom NOM (ex. Jean HEUDE-LEGRANG)"
         });
     }
     if (x === undefined || y === undefined) {
@@ -151,13 +196,19 @@ app.patch("/person", async (req, res) => {
     if (!oldNom) {
         return res.status(400).json({ error: "oldNom est requis" });
     }
+    const finalNom = nom || oldNom;
+    if (!isValidNom(finalNom)) {
+        return res.status(400).json({
+            error: "Le nom doit être au format Prénom NOM (ex. Jean HEUDE-LEGRANG)"
+        });
+    }
 
     const query = `
     MATCH (p:Person {nom:$oldNom})
     SET p.nom = $nom, p.origine = $origine
   `;
 
-    await runQuery(query, { oldNom, nom: nom || oldNom, origine });
+    await runQuery(query, { oldNom, nom: finalNom, origine });
     res.sendStatus(200);
 });
 
@@ -490,6 +541,11 @@ app.post("/proposals/:id/approve", async (req, res) => {
         try {
             switch (type) {
                 case "add_node":
+                    if (!isValidNom(data.nom)) {
+                        return res.status(400).json({
+                            error: "Le nom doit être au format Prénom NOM (ex. Jean HEUDE-LEGRANG)"
+                        });
+                    }
                     await runQuery(`
                         CREATE (:Person {
                             nom: $nom,
@@ -517,6 +573,11 @@ app.post("/proposals/:id/approve", async (req, res) => {
                     break;
 
                 case "modify_node":
+                    if (data.newNom && !isValidNom(data.newNom)) {
+                        return res.status(400).json({
+                            error: "Le nom doit être au format Prénom NOM (ex. Jean HEUDE-LEGRANG)"
+                        });
+                    }
                     const setClause = [];
                     const params = { nom: data.nom };
 

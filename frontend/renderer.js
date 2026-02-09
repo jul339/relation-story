@@ -3,6 +3,12 @@ const API_BASE =
         ? "http://localhost:3000"
         : window.location.origin;
 
+// Format nom : Prénom NOM (ex. Jean HEUDE-LEGRANG)
+const NOM_REGEX = /^[A-Z][a-z]* [A-Z][A-Z-]*$/;
+function isValidNom(nom) {
+    return typeof nom === "string" && NOM_REGEX.test(nom.trim());
+}
+
 // Mode collaborateur : ?mode=propose dans l'URL ; en dehors de localhost, seul le mode propose est accessible
 const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const urlParams = new URLSearchParams(window.location.search);
@@ -240,6 +246,11 @@ async function addPersonList(noms, origine) {
 
     if (nomsArray.length === 0) {
         alert("Aucun nom valide dans la liste !");
+        return;
+    }
+    const invalid = nomsArray.filter(n => !isValidNom(n));
+    if (invalid.length > 0) {
+        alert("Noms invalides (format Prénom NOM requis) : " + invalid.join(", "));
         return;
     }
 
@@ -586,8 +597,12 @@ cy.on('dragfree', 'node', function (evt) {
 cy.on('click', function (evt) {
     if (evt.target !== cy) return;
     const position = evt.position;
-    const nom = prompt("Nom de la personne :");
+    const nom = prompt("Nom de la personne (ex. Jean HEUDE-LEGRANG) :");
     if (!nom || !nom.trim()) return;
+    if (!isValidNom(nom)) {
+        alert("Le nom doit être au format Prénom NOM (ex. Jean HEUDE-LEGRANG).");
+        return;
+    }
     const origine = prompt("Origine (optionnel, appuyez sur Entrée pour ignorer) :");
     if (isProposeMode) {
         submitProposal("add_node", {
@@ -626,8 +641,12 @@ cy.on('dbltap', 'node[!type]', function (evt) {
             deletePerson(nom);
         }
     } else if (actionLower === 'm' || actionLower === 'modifier') {
-        const newNom = prompt(`Nouveau nom (actuel: ${nom}) :`, nom);
+        const newNom = prompt(`Nouveau nom (actuel: ${nom}), format Prénom NOM :`, nom);
         if (!newNom || !newNom.trim()) return;
+        if (!isValidNom(newNom)) {
+            alert("Le nom doit être au format Prénom NOM (ex. Jean HEUDE-LEGRANG).");
+            return;
+        }
         const newOrigine = prompt(`Nouvelle origine (laissez vide pour aucune) :`);
         if (isProposeMode) {
             submitProposal("modify_node", { nom, newNom: newNom.trim(), newOrigine: newOrigine ? newOrigine.trim() : null });
@@ -763,6 +782,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('form-person').addEventListener('submit', async (e) => {
         e.preventDefault();
         const nom = document.getElementById('nom').value.trim();
+        if (!isValidNom(nom)) {
+            alert("Le nom doit être au format Prénom NOM (ex. Jean HEUDE-LEGRANG).");
+            return;
+        }
         const origine = document.getElementById('origine').value.trim() || null;
         const xVal = document.getElementById('x').value;
         const yVal = document.getElementById('y').value;
@@ -776,10 +799,38 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             submitProposal("add_node", { nom, origine, x, y });
             e.target.reset();
+            document.getElementById('nom-similar-hint').style.display = 'none';
             return;
         }
         addPerson(nom, origine, x, y);
         e.target.reset();
+        document.getElementById('nom-similar-hint').style.display = 'none';
+    });
+
+    // Suggestions de noms proches (éviter doublons)
+    let similarTimeout;
+    document.getElementById('nom').addEventListener('input', () => {
+        clearTimeout(similarTimeout);
+        const hint = document.getElementById('nom-similar-hint');
+        const q = document.getElementById('nom').value.trim();
+        if (!q) {
+            hint.style.display = 'none';
+            return;
+        }
+        similarTimeout = setTimeout(async () => {
+            try {
+                const res = await fetch(`${API_BASE}/persons/similar?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                if (data.similar && data.similar.length > 0) {
+                    hint.textContent = 'Noms proches existants : ' + data.similar.join(', ');
+                    hint.style.display = 'block';
+                } else {
+                    hint.style.display = 'none';
+                }
+            } catch (_) {
+                hint.style.display = 'none';
+            }
+        }, 300);
     });
 
     // Gestionnaire du formulaire liste
@@ -790,6 +841,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const nomsArray = noms.split(',').map(n => n.trim()).filter(n => n.length > 0);
         if (nomsArray.length === 0) {
             alert("Aucun nom valide dans la liste !");
+            return;
+        }
+        const invalidList = nomsArray.filter(n => !isValidNom(n));
+        if (invalidList.length > 0) {
+            alert("Noms invalides (format Prénom NOM requis) : " + invalidList.join(", "));
             return;
         }
         if (isProposeMode) {

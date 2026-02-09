@@ -18,10 +18,9 @@ describe("Export/Import Endpoints", () => {
         });
 
         test("should export graph with data", async () => {
-            // Créer des personnes et relations
-            await createTestPerson("Jean", "Famille", 100, 200);
-            await createTestPerson("Marie", "Travail", 300, 400);
-            await createTestRelation("Jean", "Marie", "AMIS");
+            await createTestPerson("Jean DUPONT", "Famille", 100, 200);
+            await createTestPerson("Marie MARTIN", "Travail", 300, 400);
+            await createTestRelation("Jean DUPONT", "Marie MARTIN", "AMIS");
 
             const response = await request(app).get("/export");
 
@@ -30,16 +29,14 @@ describe("Export/Import Endpoints", () => {
             expect(response.body.edges).toHaveLength(1);
             expect(response.body.exportDate).toBeDefined();
 
-            // Vérifier les nœuds
-            const jean = response.body.nodes.find(n => n.nom === "Jean");
+            const jean = response.body.nodes.find(n => n.nom === "Jean DUPONT");
             expect(jean).toBeDefined();
             expect(jean.origine).toBe("Famille");
             expect(jean.x).toBe(100);
             expect(jean.y).toBe(200);
 
-            // Vérifier les relations
-            expect(response.body.edges[0].source).toBe("Jean");
-            expect(response.body.edges[0].target).toBe("Marie");
+            expect(response.body.edges[0].source).toBe("Jean DUPONT");
+            expect(response.body.edges[0].target).toBe("Marie MARTIN");
             expect(response.body.edges[0].type).toBe("AMIS");
         });
 
@@ -56,11 +53,11 @@ describe("Export/Import Endpoints", () => {
         test("should import data", async () => {
             const importData = {
                 nodes: [
-                    { nom: "Jean", origine: "Famille", x: 100, y: 200 },
-                    { nom: "Marie", origine: "Travail", x: 300, y: 400 }
+                    { nom: "Jean DUPONT", origine: "Famille", x: 100, y: 200 },
+                    { nom: "Marie MARTIN", origine: "Travail", x: 300, y: 400 }
                 ],
                 edges: [
-                    { source: "Jean", target: "Marie", type: "AMIS" }
+                    { source: "Jean DUPONT", target: "Marie MARTIN", type: "AMIS" }
                 ]
             };
 
@@ -73,24 +70,20 @@ describe("Export/Import Endpoints", () => {
             expect(response.body.nodesCount).toBe(2);
             expect(response.body.edgesCount).toBe(1);
 
-            // Vérifier que les données ont été importées
             const graph = await request(app).get("/graph");
             expect(graph.body.nodes).toHaveLength(2);
             expect(graph.body.edges).toHaveLength(1);
         });
 
         test("should clear existing data before import", async () => {
-            // Créer des données existantes
-            await createTestPerson("Paul", "Sport", 500, 600);
+            await createTestPerson("Paul BERNARD", "Sport", 500, 600);
 
-            // Vérifier que Paul existe
             let persons = await getAllPersons();
             expect(persons).toHaveLength(1);
 
-            // Importer de nouvelles données
             const importData = {
                 nodes: [
-                    { nom: "Jean", origine: "Famille", x: 100, y: 200 }
+                    { nom: "Jean DUPONT", origine: "Famille", x: 100, y: 200 }
                 ],
                 edges: []
             };
@@ -99,17 +92,16 @@ describe("Export/Import Endpoints", () => {
                 .post("/import")
                 .send(importData);
 
-            // Vérifier que seules les nouvelles données existent
             persons = await getAllPersons();
             expect(persons).toHaveLength(1);
-            expect(persons[0].nom).toBe("Jean");
-            expect(persons.find(p => p.nom === "Paul")).toBeUndefined();
+            expect(persons[0].nom).toBe("Jean DUPONT");
+            expect(persons.find(p => p.nom === "Paul BERNARD")).toBeUndefined();
         });
 
         test("should handle import with missing origine", async () => {
             const importData = {
                 nodes: [
-                    { nom: "Jean", x: 100, y: 200 }
+                    { nom: "Jean DUPONT", x: 100, y: 200 }
                 ],
                 edges: []
             };
@@ -121,21 +113,21 @@ describe("Export/Import Endpoints", () => {
             expect(response.status).toBe(200);
 
             const persons = await getAllPersons();
-            expect(persons[0].nom).toBe("Jean");
+            expect(persons[0].nom).toBe("Jean DUPONT");
             expect(persons[0].origine).toBeUndefined();
         });
 
         test("should handle import with multiple relations", async () => {
             const importData = {
                 nodes: [
-                    { nom: "Jean", origine: "Famille", x: 100, y: 200 },
-                    { nom: "Marie", origine: "Travail", x: 300, y: 400 },
-                    { nom: "Paul", origine: "Sport", x: 500, y: 600 }
+                    { nom: "Jean DUPONT", origine: "Famille", x: 100, y: 200 },
+                    { nom: "Marie MARTIN", origine: "Travail", x: 300, y: 400 },
+                    { nom: "Paul BERNARD", origine: "Sport", x: 500, y: 600 }
                 ],
                 edges: [
-                    { source: "Jean", target: "Marie", type: "AMIS" },
-                    { source: "Marie", target: "Paul", type: "FAMILLE" },
-                    { source: "Jean", target: "Paul", type: "AMOUR" }
+                    { source: "Jean DUPONT", target: "Marie MARTIN", type: "AMIS" },
+                    { source: "Marie MARTIN", target: "Paul BERNARD", type: "FAMILLE" },
+                    { source: "Jean DUPONT", target: "Paul BERNARD", type: "AMOUR" }
                 ]
             };
 
@@ -174,38 +166,31 @@ describe("Export/Import Endpoints", () => {
 
     describe("Export then Import (round-trip)", () => {
         test("should preserve all data in export/import cycle", async () => {
-            // Créer un graphe complet
-            await createTestPerson("Jean", "Famille", 100, 200);
-            await createTestPerson("Marie", "Travail", 300, 400);
-            await createTestPerson("Paul", "Sport", 500, 600);
-            await createTestRelation("Jean", "Marie", "AMIS");
-            await createTestRelation("Marie", "Paul", "FAMILLE");
+            await createTestPerson("Jean DUPONT", "Famille", 100, 200);
+            await createTestPerson("Marie MARTIN", "Travail", 300, 400);
+            await createTestPerson("Paul BERNARD", "Sport", 500, 600);
+            await createTestRelation("Jean DUPONT", "Marie MARTIN", "AMIS");
+            await createTestRelation("Marie MARTIN", "Paul BERNARD", "FAMILLE");
 
-            // Exporter
             const exportResponse = await request(app).get("/export");
             const exportData = exportResponse.body;
 
-            // Nettoyer
             await clearDatabase();
 
-            // Vérifier que c'est vide
             let persons = await getAllPersons();
             expect(persons).toHaveLength(0);
 
-            // Importer
             await request(app)
                 .post("/import")
                 .send(exportData);
 
-            // Vérifier que tout a été restauré
             persons = await getAllPersons();
             expect(persons).toHaveLength(3);
 
             const graph = await request(app).get("/graph");
             expect(graph.body.edges).toHaveLength(2);
 
-            // Vérifier les détails
-            const jean = persons.find(p => p.nom === "Jean");
+            const jean = persons.find(p => p.nom === "Jean DUPONT");
             expect(jean.origine).toBe("Famille");
             expect(jean.x).toBe(100);
             expect(jean.y).toBe(200);
