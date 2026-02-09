@@ -9,9 +9,9 @@ if (process.env.NODE_ENV !== "test") {
     dotenv.config({ path: path.join(__dirname, "..", ".env") });
 }
 
-const uri = process.env.NEO4J_URI || "bolt://127.0.0.1:7687";
-const user = process.env.NEO4J_USER || "neo4j";
-const password = process.env.NEO4J_PASSWORD || "password";
+const uri = process.env.NEO4J_URI;
+const user = process.env.NEO4J_USER;
+const password = process.env.NEO4J_PASSWORD;
 
 // Connexion locale (bolt://) : pas de chiffrement pour éviter ECONNRESET avec Neo4j 4+/5
 const driverConfig =
