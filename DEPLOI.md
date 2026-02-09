@@ -35,7 +35,7 @@ Une seule app (backend + frontend) sur **Render** (gratuit) + base **Neo4j Aura 
    |-----------------|--------|
    | `NODE_ENV`      | `production` |
    | `NEO4J_URI`     | ton URI Aura (ex. `neo4j+s://xxxx.databases.neo4j.io`) |
-   | `NEO4J_USER`    | `neo4j` |
+   | `NEO4J_USERNAME`    | `neo4j` |
    | `NEO4J_PASSWORD`| le mot de passe Aura |
    | `CORS_ORIGIN`   | `https://ton-service.onrender.com` (remplace par l’URL que Render t’affichera après création, ex. `https://relation-story-xxxx.onrender.com`) |
 
@@ -73,12 +73,12 @@ Exemple dans `.env` :
 ```bash
 # --- Dev (Neo4j Docker local) ---
 # NEO4J_URI=bolt://127.0.0.1:7687
-# NEO4J_USER=neo4j
+# NEO4J_USERNAME=neo4j
 # NEO4J_PASSWORD=password
 
 # --- Prod (Aura) — décommenter pour admin local sur prod ---
 NEO4J_URI=neo4j+s://xxxx.databases.neo4j.io
-NEO4J_USER=neo4j
+NEO4J_USERNAME=neo4j
 NEO4J_PASSWORD=ton_mot_de_passe_aura
 ```
 
@@ -89,4 +89,3 @@ Puis `cd backend && npm start` et frontend en local sur `http://localhost:8080`.
 ## 6. Snapshots (versions)
 
 Les snapshots sont enregistrés dans le **fichier** (`backend/snapshots/`). Sur Render, le disque est éphémère : à chaque redéploiement ou redémarrage, ils sont perdus. Pour les garder, il faudrait plus tard utiliser un stockage externe (ex. S3). Pour un usage léger, tu peux ignorer ou accepter cette limite.
-   

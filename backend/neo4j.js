@@ -10,7 +10,7 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 const uri = process.env.NEO4J_URI;
-const user = process.env.NEO4J_USER;
+const user = process.env.NEO4J_USERNAME;
 const password = process.env.NEO4J_PASSWORD;
 
 // Connexion locale (bolt://) : pas de chiffrement pour éviter ECONNRESET avec Neo4j 4+/5

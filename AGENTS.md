@@ -19,7 +19,7 @@ Application web permettant de créer et visualiser un graphe de relations entre 
 
 **Configuration Neo4j**: `backend/neo4j.js`
 
-- Lit `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` (défaut local : `bolt://127.0.0.1:7687`, neo4j, password)
+- Lit `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` (défaut local : `bolt://127.0.0.1:7687`, neo4j, password)
 - En production (ex. Neo4j Aura) : définir ces variables dans `.env` ou chez l’hébergeur (voir `DEPLOI.md`)
 
 ### Frontend (HTML/CSS/JS + Cytoscape.js)
@@ -299,10 +299,10 @@ Accès:
 | Variable        | Défaut (dev local)     | Production (ex.)                          |
 |----------------|------------------------|-------------------------------------------|
 | `NEO4J_URI`    | bolt://127.0.0.1:7687 | neo4j+s://xxx.databases.neo4j.io (Aura)   |
-| `NEO4J_USER`   | neo4j                  | neo4j                                     |
+| `NEO4J_USERNAME`   | neo4j                  | neo4j                                     |
 | `NEO4J_PASSWORD` | password             | mot de passe Aura                          |
 | `PORT`         | 3000                   | fourni par l’hébergeur (Render, etc.)     |
-| `CORS_ORIGIN`  | *                      | https://ton-app.onrender.com (URL du service si front servi par le backend) |
+| `CORS_ORIGIN`  | *                      | <https://ton-app.onrender.com> (URL du service si front servi par le backend) |
 
 - **Sans `.env`** : le backend utilise les défauts ci‑dessus (Neo4j local, port 3000, CORS `*`).
 - **Frontend** : en production, si le front est servi depuis le **même domaine** que l’API, `API_BASE = window.location.origin` suffit. Sinon (front et API sur domaines différents), il faudrait adapter la logique dans `renderer.js` (ex. URL en dur ou endpoint de config).
