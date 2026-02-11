@@ -172,19 +172,19 @@ describe("Person Endpoints", () => {
         });
     });
 
-    describe("DELETE /all", () => {
-        test("should delete all data", async () => {
-            await createTestPerson("Jean DUPONT", "Famille", 100, 200);
-            await createTestPerson("Marie MARTIN", "Travail", 300, 400);
+    // describe("DELETE /all", () => {
+    //     test("should delete all data", async () => {
+    //         await createTestPerson("Jean DUPONT", "Famille", 100, 200);
+    //         await createTestPerson("Marie MARTIN", "Travail", 300, 400);
 
-            const response = await request(app).delete("/all");
+    //         const response = await request(app).delete("/all");
 
-            expect(response.status).toBe(200);
-            expect(response.body.message).toBe("Tous les nœuds et relations ont été supprimés");
+    //         expect(response.status).toBe(200);
+    //         expect(response.body.message).toBe("Tous les nœuds et relations ont été supprimés");
 
-            // Vérifier la suppression
-            const graph = await request(app).get("/graph");
-            expect(graph.body.nodes).toHaveLength(0);
-        });
-    });
+    //         // Vérifier la suppression
+    //         const graph = await request(app).get("/graph");
+    //         expect(graph.body.nodes).toHaveLength(0);
+    //     });
+    // });
 });

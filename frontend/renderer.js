@@ -18,6 +18,8 @@ const isLocalhost = window.location.hostname === "localhost" || window.location.
 const urlParams = new URLSearchParams(window.location.search);
 const isProposeMode = !isLocalhost || urlParams.get("mode") === "propose";
 
+let currentUser = null; // { email, person_node_id, visibility_level } ou null
+
 const colors = {
     FAMILLE: "blue",
     AMIS: "green",
@@ -209,6 +211,7 @@ async function loadGraph() {
 async function loadPendingOnGraph() {
     try {
         const res = await apiFetch(`${API_BASE}/proposals?status=pending`);
+        if (!res.ok) return;
         const list = await res.json();
         if (!Array.isArray(list) || list.length === 0) return;
 
@@ -543,17 +546,15 @@ async function saveNodePosition(nom, x, y) {
 
 // --- Propositions (mode collaborateur) ---
 async function submitProposal(type, data) {
-    const authorName = document.getElementById("author-name")?.value?.trim();
-    if (isProposeMode && (!authorName || !authorName.length)) {
-        alert("Indiquez votre nom pour proposer une modification.");
+    if (isProposeMode && !currentUser) {
+        alert("Connectez-vous pour proposer une modification.");
         return;
     }
-    const authorEmail = document.getElementById("author-email")?.value?.trim() || null;
     try {
         const res = await apiFetch(`${API_BASE}/proposals`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ authorName: authorName || "Anonyme", authorEmail, type, data })
+            body: JSON.stringify({ type, data })
         });
         const json = await res.json();
         if (res.ok) {
@@ -662,12 +663,21 @@ function applyProposeModeUI() {
     const adminSection = document.getElementById("proposals-admin-section");
     const deleteAllBtn = document.getElementById("delete-all");
     const importBtn = document.getElementById("import");
+    const loginHint = document.getElementById("propose-login-hint");
+    const statsEl = document.getElementById("proposal-stats");
     if (isProposeMode) {
         if (authorSection) authorSection.style.display = "block";
         if (adminSection) adminSection.style.display = "none";
         if (deleteAllBtn) deleteAllBtn.style.display = "none";
         if (importBtn) importBtn.style.display = "none";
-        loadProposalStats();
+        if (currentUser) {
+            if (loginHint) loginHint.style.display = "none";
+            if (statsEl) statsEl.style.display = "";
+            loadProposalStats();
+        } else {
+            if (loginHint) loginHint.style.display = "block";
+            if (statsEl) statsEl.style.display = "none";
+        }
     } else {
         if (authorSection) authorSection.style.display = "none";
         if (adminSection) adminSection.style.display = "block";
@@ -874,22 +884,26 @@ async function initAuth() {
         const res = await apiFetch(`${API_BASE}/auth/me`);
         if (res.ok) {
             const user = await res.json();
+            currentUser = user;
             bar.innerHTML = `Connecté : ${user.email} · <button type="button" id="auth-logout">Déconnexion</button>`;
             document.getElementById("auth-logout").addEventListener("click", async () => {
                 await apiFetch(`${API_BASE}/auth/logout`, { method: "POST" });
                 window.location.reload();
             });
         } else {
+            currentUser = null;
             bar.innerHTML = '<a href="login.html">Connexion</a>';
         }
     } catch {
+        currentUser = null;
         bar.innerHTML = '<a href="login.html">Connexion</a>';
     }
+    applyProposeModeUI();
 }
 
 // Initialisation après chargement du DOM
-document.addEventListener('DOMContentLoaded', () => {
-    initAuth();
+document.addEventListener('DOMContentLoaded', async () => {
+    await initAuth();
     applyProposeModeUI();
 
     // Gestionnaire du formulaire personne
@@ -963,6 +977,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         if (isProposeMode) {
+            if (!currentUser) {
+                alert("Connectez-vous pour proposer une modification.");
+                return;
+            }
             let centerX = 500, centerY = 350, radius = 200;
             try {
                 const res = await apiFetch(`${API_BASE}/graph`);
@@ -988,8 +1006,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                            authorName: document.getElementById("author-name")?.value?.trim() || "Anonyme",
-                            authorEmail: document.getElementById("author-email")?.value?.trim() || null,
                             type: "add_node",
                             data: { nom: nomsArray[i], origine, x, y }
                         })

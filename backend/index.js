@@ -54,6 +54,18 @@ if (process.env.DATABASE_URL) {
 }
 app.use(session(sessionConfig));
 
+// En test : simuler une session via en-têtes (pour POST /proposals sans DB)
+if (process.env.NODE_ENV === "test") {
+    app.use((req, res, next) => {
+        const email = req.get("x-test-user-email");
+        const personNodeId = req.get("x-test-user-person-node-id");
+        if (email && personNodeId && !req.session?.user) {
+            req.session.user = { email, person_node_id: personNodeId, visibility_level: 1 };
+        }
+        next();
+    });
+}
+
 function isAdmin(req) {
     return req.hostname === "localhost" || req.hostname === "127.0.0.1";
 }
@@ -601,14 +613,26 @@ app.delete("/relation", requireAdmin, async (req, res) => {
 
 /* ---------- PROPOSALS ENDPOINTS ---------- */
 
-// Soumettre une proposition (public)
-app.post("/proposals", async (req, res) => {
-    const { authorName, authorEmail, type, data } = req.body;
+async function resolveAuthorNames(nodeIds) {
+    const ids = [...new Set(nodeIds)].filter(Boolean);
+    if (ids.length === 0) return new Map();
+    const records = await runQuery(
+        "MATCH (a:Person) WHERE a.nodeId IN $ids RETURN a.nodeId AS id, a.nom AS nom",
+        { ids }
+    );
+    const map = new Map();
+    for (const r of records) map.set(r.get("id"), r.get("nom"));
+    return map;
+}
 
-    // Validation
-    if (!authorName || !type || !data) {
+// Soumettre une proposition (utilisateur connecté uniquement)
+app.post("/proposals", requireAuth, async (req, res) => {
+    const { type, data } = req.body;
+    const { email, person_node_id: authorNodeId } = req.session.user;
+
+    if (!type || !data) {
         return res.status(400).json({
-            error: "authorName, type et data sont obligatoires"
+            error: "type et data sont obligatoires"
         });
     }
 
@@ -626,8 +650,8 @@ app.post("/proposals", async (req, res) => {
         const query = `
             CREATE (p:Proposal {
                 id: $id,
-                authorName: $authorName,
                 authorEmail: $authorEmail,
+                authorNodeId: $authorNodeId,
                 type: $type,
                 data: $data,
                 status: 'pending',
@@ -641,8 +665,8 @@ app.post("/proposals", async (req, res) => {
 
         await runQuery(query, {
             id,
-            authorName,
-            authorEmail: authorEmail || null,
+            authorEmail: email,
+            authorNodeId: authorNodeId || null,
             type,
             data: JSON.stringify(data),
             createdAt
@@ -721,10 +745,16 @@ app.get("/proposals", async (req, res) => {
         }
 
         const records = await runQuery(query, params);
-        const proposals = records.map(record => {
+        const raw = records.map(record => {
             const props = record.get("p").properties;
             return { ...props, data: JSON.parse(props.data) };
         });
+        const nodeIds = raw.map(p => p.authorNodeId).filter(Boolean);
+        const nameByNodeId = await resolveAuthorNames(nodeIds);
+        const proposals = raw.map(p => ({
+            ...p,
+            authorName: p.authorNodeId ? (nameByNodeId.get(p.authorNodeId) ?? p.authorNodeId) : p.authorName
+        }));
         res.json(proposals);
     } catch (error) {
         res.status(500).json({
@@ -753,7 +783,12 @@ app.get("/proposals/:id", async (req, res) => {
                 return res.status(403).json({ error: "Accès refusé" });
             }
         }
-        res.json({ ...props, data: JSON.parse(props.data) });
+        const out = { ...props, data: JSON.parse(props.data) };
+        if (props.authorNodeId) {
+            const nameByNodeId = await resolveAuthorNames([props.authorNodeId]);
+            out.authorName = nameByNodeId.get(props.authorNodeId) ?? props.authorNodeId;
+        }
+        res.json(out);
     } catch (error) {
         res.status(500).json({
             error: "Erreur lors de la récupération de la proposition",

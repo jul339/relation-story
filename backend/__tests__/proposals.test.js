@@ -8,12 +8,17 @@ describe("Proposals Endpoints", () => {
     });
 
     describe("POST /proposals", () => {
-        test("should create add_node proposal", async () => {
+        const authHeaders = (person) => ({
+            "X-Test-User-Email": "test@test.com",
+            "X-Test-User-Person-Node-Id": person.nodeId
+        });
+
+        test("should create add_node proposal when authenticated", async () => {
+            const person = await createTestPerson("Jean DUPONT", null, 0, 0);
             const response = await request(app)
                 .post("/proposals")
+                .set(authHeaders(person))
                 .send({
-                    authorName: "Jean Test",
-                    authorEmail: "jean@test.com",
                     type: "add_node",
                     data: {
                         nom: "Test PERSON",
@@ -28,11 +33,14 @@ describe("Proposals Endpoints", () => {
             expect(response.body.message).toBe("Proposition créée avec succès");
         });
 
-        test("should create add_relation proposal", async () => {
+        test("should create add_relation proposal when authenticated", async () => {
+            await createTestPerson("Jean DUPONT", "Famille", 100, 200);
+            await createTestPerson("Marie MARTIN", "Travail", 300, 400);
+            const person = await createTestPerson("Paul OTHER", null, 0, 0);
             const response = await request(app)
                 .post("/proposals")
+                .set(authHeaders(person))
                 .send({
-                    authorName: "Jean Test",
                     type: "add_relation",
                     data: {
                         source: "Jean DUPONT",
@@ -44,11 +52,13 @@ describe("Proposals Endpoints", () => {
             expect(response.status).toBe(201);
         });
 
-        test("should create modify_node proposal", async () => {
+        test("should create modify_node proposal when authenticated", async () => {
+            await createTestPerson("Jean DUPONT", null, 0, 0);
+            const person = await createTestPerson("Marie MARTIN", null, 0, 0);
             const response = await request(app)
                 .post("/proposals")
+                .set(authHeaders(person))
                 .send({
-                    authorName: "Jean Test",
                     type: "modify_node",
                     data: {
                         nom: "Jean DUPONT",
@@ -60,43 +70,38 @@ describe("Proposals Endpoints", () => {
             expect(response.status).toBe(201);
         });
 
-        test("should create delete_node proposal", async () => {
+        test("should create delete_node proposal when authenticated", async () => {
+            await createTestPerson("Jean DUPONT", null, 0, 0);
+            const person = await createTestPerson("Marie MARTIN", null, 0, 0);
             const response = await request(app)
                 .post("/proposals")
+                .set(authHeaders(person))
                 .send({
-                    authorName: "Jean Test",
                     type: "delete_node",
-                    data: {
-                        nom: "Jean DUPONT"
-                    }
+                    data: { nom: "Jean DUPONT" }
                 });
 
             expect(response.status).toBe(201);
         });
 
         test("should return 400 if type is invalid", async () => {
+            const person = await createTestPerson("Jean DUPONT", null, 0, 0);
             const response = await request(app)
                 .post("/proposals")
-                .send({
-                    authorName: "Jean Test",
-                    type: "invalid_type",
-                    data: {}
-                });
+                .set(authHeaders(person))
+                .send({ type: "invalid_type", data: {} });
 
             expect(response.status).toBe(400);
             expect(response.body.error).toContain("Type invalide");
         });
 
-        test("should return 400 if authorName is missing", async () => {
+        test("should return 401 when not authenticated", async () => {
             const response = await request(app)
                 .post("/proposals")
-                .send({
-                    type: "add_node",
-                    data: {}
-                });
+                .send({ type: "add_node", data: {} });
 
-            expect(response.status).toBe(400);
-            expect(response.body.error).toBe("authorName, type et data sont obligatoires");
+            expect(response.status).toBe(401);
+            expect(response.body.error).toMatch(/authentifié|Non authentifié/i);
         });
     });
 

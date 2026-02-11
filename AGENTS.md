@@ -83,8 +83,8 @@ Séparé des Person (pas de relations entre eux). Stocke les propositions en att
 ```cypher
 (:Proposal {
   id: String,           // UUID unique
-  authorName: String,
-  authorEmail: String,  // optionnel - utilisé pour filtrer par auteur
+  authorEmail: String,  // rempli depuis la session (filtrage par auteur)
+  authorNodeId: String, // nodeId de la Person auteur (6 chiffres), rempli depuis la session
   type: String,         // add_node | add_relation | modify_node | delete_node | delete_relation
   data: String,        // JSON stringifié des données
   status: String,      // pending | approved | rejected
@@ -93,6 +93,7 @@ Séparé des Person (pas de relations entre eux). Stocke les propositions en att
   reviewedBy: String,
   comment: String
 })
+// authorName : résolu côté API à partir de authorNodeId (Person.nom) pour l'affichage ; anciennes propositions peuvent avoir authorName en base
 ```
 
 ### Table `users` (PostgreSQL)
@@ -234,7 +235,7 @@ Response: { "message": "Import réussi", "nodesCount": 5, "edgesCount": 3 }
 
 ### Propositions (collaboration)
 
-- **POST /proposals** – Soumettre une proposition (public). Body: `{ authorName, authorEmail?, type, data }`. Types: add_node, add_relation, modify_node, delete_node, delete_relation.
+- **POST /proposals** – Soumettre une proposition (**utilisateur connecté uniquement**, 401 sinon). Body: `{ type, data }`. L'auteur est déduit de la session (email, person_node_id → authorEmail, authorNodeId). Types: add_node, add_relation, modify_node, delete_node, delete_relation.
 - **GET /proposals/stats** – Admin : stats globales. Connecté (non admin) : stats uniquement pour les propositions de l'utilisateur (authorEmail = session.user.email). Non connecté : `{ pending: 0, approved: 0, rejected: 0, total: 0 }`.
 - **GET /proposals** – Admin : toutes les propositions. Connecté : uniquement celles dont authorEmail = session.user.email. Non connecté : 401.
 - **GET /proposals/:id** – Détails d'une proposition. Admin : accès à toute. Connecté : uniquement si authorEmail = session.user.email, sinon 403.
@@ -289,7 +290,7 @@ Response: { "message": "Import réussi", "nodesCount": 5, "edgesCount": 3 }
 1. **Auth bar** (sous le titre) : lien "Connexion" (vers login.html) ou "Connecté : email" + bouton Déconnexion. Mise à jour au chargement via GET /auth/me (apiFetch avec credentials).
 2. **Page login.html** : formulaire Connexion (email, mot de passe) ; inscription (email, mot de passe, recherche par nom → GET /persons/available-for-signup → choix du nœud → POST /auth/register). Redirection vers index.html après succès.
 3. **Sidebar toggleable** (bouton "≡ Menu" en haut à gauche)
-4. **Mode collaborateur** (`?mode=propose` ou hors localhost) : bloc "Proposer des modifications" (Votre nom, email), stats "X proposition(s) en attente". Masqué : Tout supprimer, Importer. Les formulaires (personne, liste, relation) envoient des propositions (POST /proposals) au lieu des endpoints directs ; les écritures directes (POST /person, etc.) sont refusées (403) par le backend en dehors de localhost.
+4. **Mode collaborateur** (`?mode=propose` ou hors localhost) : bloc "Proposer des modifications" (titre + hint + stats "X proposition(s) en attente" si connecté, sinon "Connectez-vous pour proposer" + lien Connexion). **Connexion obligatoire** pour soumettre une proposition. Masqué : Tout supprimer, Importer. Les formulaires (personne, liste, relation) envoient des propositions (POST /proposals) au lieu des endpoints directs ; les écritures directes (POST /person, etc.) sont refusées (403) par le backend en dehors de localhost.
 5. **Propositions en attente** : section toujours visible avec liste et bouton Rafraîchir. En mode admin : boutons Approuver/Rejeter sur chaque proposition. En mode propose : liste en lecture seule (filtrée par auteur côté API).
 4. **Formulaire Personne** : consigne « Nom en majuscule OBLIGATOIRE, exemple : Jean HEUDE-LEGRANG » ; champ nom (format Prénom NOM, validé par regex) ; sous le champ, affichage des **3 noms les plus proches** existants (GET /persons/similar) pour éviter les doublons ; origine (optionnel), x/y (auto si vide).
 5. **Formulaire Liste** : noms CSV au format Prénom NOM, origine optionnelle (positions auto)
@@ -320,7 +321,7 @@ Les propositions en attente sont affichées sur le graphe avec une transparence 
 
 - Détection : `isProposeMode = !isLocalhost || urlParams.get("mode") === "propose"` dans `renderer.js`.
 - En mode propose, tous les ajouts/modifications/suppressions passent par **POST /proposals** au lieu des endpoints directs ; le backend renvoie 403 sur POST /person, PATCH /person, DELETE /person, POST /relation, DELETE /relation, POST /import en dehors de localhost (requireAdmin).
-- Champ "Votre nom" obligatoire pour soumettre une proposition.
+- **Connexion obligatoire** pour soumettre une proposition (401 sinon) ; l'auteur est identifié par la session (person_node_id + email).
 - Lien à partager pour collaborateurs : `http://localhost:8080?mode=propose` (ou l'URL hébergée).
 
 ## 🚀 Démarrage du Projet
