@@ -1,4 +1,5 @@
 import { runQuery } from "./neo4j.js";
+import { generateUniqueNodeId, generateUniqueEdgeId } from "./ids.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -43,7 +44,8 @@ async function getCurrentGraph() {
             edges.push({
                 source: pId,
                 target: qId,
-                type: r.type
+                type: r.type,
+                edgeId: r.properties?.edgeId ?? null
             });
         }
     });
@@ -132,34 +134,41 @@ export async function restoreSnapshot(id) {
     // Supprimer uniquement les Person et leurs relations (pas les Proposals)
     await runQuery(`MATCH (p:Person) DETACH DELETE p`);
 
-    // Recréer tous les nœuds
     for (const node of snapshot.nodes) {
+        const nodeId = node.nodeId && /^\d{6}$/.test(node.nodeId)
+            ? node.nodeId
+            : await generateUniqueNodeId();
         const query = `
             CREATE (:Person {
                 nom: $nom,
                 origine: $origine,
                 x: $x,
-                y: $y
+                y: $y,
+                nodeId: $nodeId
             })
         `;
         await runQuery(query, {
             nom: node.nom,
             origine: node.origine || null,
             x: node.x || 0,
-            y: node.y || 0
+            y: node.y || 0,
+            nodeId
         });
     }
 
-    // Recréer toutes les relations
     for (const edge of snapshot.edges) {
+        const edgeId = edge.edgeId && /^\d{6}$/.test(edge.edgeId)
+            ? edge.edgeId
+            : await generateUniqueEdgeId();
         const query = `
             MATCH (a:Person {nom: $source})
             MATCH (b:Person {nom: $target})
-            CREATE (a)-[:${edge.type}]->(b)
+            CREATE (a)-[r:${edge.type} {edgeId: $edgeId}]->(b)
         `;
         await runQuery(query, {
             source: edge.source,
-            target: edge.target
+            target: edge.target,
+            edgeId
         });
     }
 

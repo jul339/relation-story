@@ -327,4 +327,25 @@ describe("Proposals Endpoints", () => {
             expect(response.body.error).toContain("déjà rejected");
         });
     });
+
+    describe("Proposals filter (non-admin, no session)", () => {
+        test("GET /proposals returns 401 when Host is not localhost and no session", async () => {
+            await createTestProposal("User1", "add_node", { nom: "Test UN", x: 0, y: 0 });
+            const response = await request(app)
+                .get("/proposals")
+                .set("Host", "example.com");
+            expect(response.status).toBe(401);
+            expect(response.body.error).toMatch(/authentifié|Non authentifié/i);
+        });
+
+        test("GET /proposals/stats returns zeros when no session (non-admin)", async () => {
+            await createTestProposal("User1", "add_node", { nom: "Test UN", x: 0, y: 0 });
+            const response = await request(app)
+                .get("/proposals/stats")
+                .set("Host", "example.com");
+            expect(response.status).toBe(200);
+            expect(response.body.pending).toBe(0);
+            expect(response.body.total).toBe(0);
+        });
+    });
 });

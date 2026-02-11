@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Connexion - Graphe de relations</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        #login-page { max-width: 400px; margin: 40px auto; padding: 20px; }
+        #login-page h1 { margin-bottom: 24px; }
+        #login-page input { display: block; width: 100%; margin-bottom: 12px; padding: 10px; box-sizing: border-box; }
+        #login-page button { padding: 10px 20px; cursor: pointer; }
+        #signup-toggle { margin-top: 16px; color: #666; cursor: pointer; text-decoration: underline; }
+        #signup-section { display: none; margin-top: 24px; padding-top: 24px; border-top: 1px solid #ddd; }
+        #available-list { list-style: none; padding: 0; margin: 8px 0; max-height: 200px; overflow-y: auto; }
+        #available-list li { padding: 8px 12px; cursor: pointer; border: 1px solid #eee; margin-bottom: 4px; }
+        #available-list li:hover { background: #f0f0f0; }
+        #selected-node { margin: 8px 0; color: #333; font-weight: bold; }
+        .error { color: #c00; margin: 8px 0; }
+    </style>
+</head>
+<body>
+    <div id="login-page">
+        <h1>Connexion</h1>
+
+        <div id="login-section">
+            <form id="form-login">
+                <input type="email" id="login-email" placeholder="Email" required>
+                <input type="password" id="login-password" placeholder="Mot de passe" required>
+                <p id="login-error" class="error" style="display: none;"></p>
+                <button type="submit">Se connecter</button>
+            </form>
+            <p id="signup-toggle">Créer un compte</p>
+        </div>
+
+        <div id="signup-section">
+            <h2>Inscription</h2>
+            <p>Choisissez le nœud qui vous représente (recherche par nom).</p>
+            <form id="form-signup">
+                <input type="email" id="signup-email" placeholder="Email" required>
+                <input type="password" id="signup-password" placeholder="Mot de passe" required>
+                <input type="text" id="signup-search" placeholder="Rechercher votre nom" autocomplete="off">
+                <ul id="available-list"></ul>
+                <p id="selected-node" style="display: none;"></p>
+                <p id="signup-error" class="error" style="display: none;"></p>
+                <button type="submit" id="signup-submit" disabled>S'inscrire</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = (window.location.hostname === "localhost" && window.location.port === "8080")
+            ? "http://localhost:3000" : window.location.origin;
+
+        function apiFetch(url, opts = {}) {
+            return fetch(url, { ...opts, credentials: "include" });
+        }
+
+        document.getElementById("signup-toggle").addEventListener("click", () => {
+            document.getElementById("signup-section").style.display = "block";
+        });
+
+        let selectedNodeId = null;
+        let searchTimer = null;
+        const listEl = document.getElementById("available-list");
+        const selectedEl = document.getElementById("selected-node");
+        const signupSubmit = document.getElementById("signup-submit");
+
+        document.getElementById("signup-search").addEventListener("input", () => {
+            clearTimeout(searchTimer);
+            const q = document.getElementById("signup-search").value.trim();
+            selectedNodeId = null;
+            selectedEl.style.display = "none";
+            signupSubmit.disabled = true;
+            if (q.length < 2) { listEl.innerHTML = ""; return; }
+            searchTimer = setTimeout(async () => {
+                const res = await apiFetch(`${API_BASE}/persons/available-for-signup?q=${encodeURIComponent(q)}`);
+                const data = await res.json().catch(() => ({}));
+                listEl.innerHTML = "";
+                if (!data.available || data.available.length === 0) return;
+                data.available.forEach(({ nodeId, nom }) => {
+                    const li = document.createElement("li");
+                    li.textContent = `${nom} (${nodeId})`;
+                    li.dataset.nodeId = nodeId;
+                    li.dataset.nom = nom;
+                    li.addEventListener("click", () => {
+                        selectedNodeId = nodeId;
+                        selectedEl.textContent = `Sélectionné : ${nom}`;
+                        selectedEl.style.display = "block";
+                        signupSubmit.disabled = false;
+                    });
+                    listEl.appendChild(li);
+                });
+            }, 300);
+        });
+
+        document.getElementById("form-login").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const errEl = document.getElementById("login-error");
+            errEl.style.display = "none";
+            const res = await apiFetch(`${API_BASE}/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: document.getElementById("login-email").value.trim(),
+                    password: document.getElementById("login-password").value
+                })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                errEl.textContent = data.error || "Erreur de connexion";
+                errEl.style.display = "block";
+                return;
+            }
+            window.location.href = "index.html";
+        });
+
+        document.getElementById("form-signup").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (!selectedNodeId) return;
+            const errEl = document.getElementById("signup-error");
+            errEl.style.display = "none";
+            const res = await apiFetch(`${API_BASE}/auth/register`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: document.getElementById("signup-email").value.trim(),
+                    password: document.getElementById("signup-password").value,
+                    person_node_id: selectedNodeId
+                })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                errEl.textContent = data.error || "Erreur d'inscription";
+                errEl.style.display = "block";
+                return;
+            }
+            window.location.href = "index.html";
+        });
+    </script>
+</body>
+</html>

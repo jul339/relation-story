@@ -1,4 +1,5 @@
 import { runQuery } from "../neo4j.js";
+import { generateUniqueNodeId, generateUniqueEdgeId } from "../ids.js";
 import request from "supertest";
 import express from "express";
 import crypto from "crypto";
@@ -29,32 +30,35 @@ export async function clearDatabase() {
 
 // Helper pour créer une personne de test
 export async function createTestPerson(nom, origine = null, x = 0, y = 0) {
+    const nodeId = await generateUniqueNodeId();
     const query = `
         CREATE (p:Person {
             nom: $nom,
             origine: $origine,
             x: $x,
-            y: $y
+            y: $y,
+            nodeId: $nodeId
         })
         RETURN p
     `;
-    const records = await runQuery(query, { nom, origine, x, y });
+    const records = await runQuery(query, { nom, origine, x, y, nodeId });
     return records[0].get("p").properties;
 }
 
 // Helper pour créer une relation de test
 export async function createTestRelation(source, target, type) {
+    const edgeId = await generateUniqueEdgeId();
     const query = `
         MATCH (a:Person {nom: $source})
         MATCH (b:Person {nom: $target})
-        CREATE (a)-[r:${type}]->(b)
+        CREATE (a)-[r:${type} {edgeId: $edgeId}]->(b)
         RETURN r
     `;
-    await runQuery(query, { source, target });
+    await runQuery(query, { source, target, edgeId });
 }
 
-// Helper pour créer une proposition de test
-export async function createTestProposal(authorName, type, data) {
+// Helper pour créer une proposition de test (authorEmail optionnel)
+export async function createTestProposal(authorName, type, data, authorEmail = null) {
     const id = crypto.randomUUID();
     const createdAt = new Date().toISOString();
 
@@ -62,7 +66,7 @@ export async function createTestProposal(authorName, type, data) {
         CREATE (p:Proposal {
             id: $id,
             authorName: $authorName,
-            authorEmail: null,
+            authorEmail: $authorEmail,
             type: $type,
             data: $data,
             status: 'pending',
@@ -77,6 +81,7 @@ export async function createTestProposal(authorName, type, data) {
     const records = await runQuery(query, {
         id,
         authorName,
+        authorEmail,
         type,
         data: JSON.stringify(data),
         createdAt

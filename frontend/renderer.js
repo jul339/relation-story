@@ -3,6 +3,10 @@ const API_BASE =
         ? "http://localhost:3000"
         : window.location.origin;
 
+function apiFetch(url, opts = {}) {
+    return fetch(url, { ...opts, credentials: "include" });
+}
+
 // Format nom : Prénom NOM (ex. Jean HEUDE-LEGRANG)
 const NOM_REGEX = /^[A-Z][a-z]* [A-Z][A-Z-]*$/;
 function isValidNom(nom) {
@@ -17,7 +21,8 @@ const isProposeMode = !isLocalhost || urlParams.get("mode") === "propose";
 const colors = {
     FAMILLE: "blue",
     AMIS: "green",
-    AMOUR: "red"
+    AMOUR: "red",
+    CONNECTION: "#999"
 };
 
 const cy = cytoscape({
@@ -26,7 +31,7 @@ const cy = cytoscape({
         {
             selector: 'node',
             style: {
-                'label': 'data(id)',
+                'label': 'data(label)',
                 'background-opacity': 0,        // Rend le fond transparent
                 'color': '#000',                // Couleur du texte en noir
                 'text-valign': 'center',
@@ -118,7 +123,7 @@ const cy = cytoscape({
 // Fonction pour récupérer le graphe depuis le backend
 async function loadGraph() {
     try {
-        const res = await fetch(`${API_BASE}/graph`);
+        const res = await apiFetch(`${API_BASE}/graph`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
             const msg = data.details || data.error || res.statusText;
@@ -165,26 +170,28 @@ async function loadGraph() {
         // Ajouter les nœuds avec leurs coordonnées et assigner au groupe parent
         data.nodes.forEach(node => {
             const parent = node.origine ? `group_${node.origine}` : undefined;
+            const label = node.nom != null ? node.nom : node.id;
             cy.add({
                 group: 'nodes',
                 data: {
                     id: node.id,
-                    label: node.id,
+                    label: label,
                     parent: parent
                 },
                 position: { x: node.x, y: node.y }
             });
         });
 
-        // Ajouter les relations
+        // Ajouter les relations (type peut être CONNECTION quand masqué)
         data.edges.forEach(edge => {
+            const edgeId = edge.edgeId || `${edge.source}_${edge.target}_${edge.type || "CONNECTION"}`;
             cy.add({
                 group: 'edges',
                 data: {
-                    id: `${edge.source}_${edge.target}_${edge.type}`,
+                    id: edgeId,
                     source: edge.source,
                     target: edge.target,
-                    color: colors[edge.type] || 'black'
+                    color: colors[edge.type] || colors.CONNECTION || '#999'
                 }
             });
         });
@@ -201,7 +208,7 @@ async function loadGraph() {
 
 async function loadPendingOnGraph() {
     try {
-        const res = await fetch(`${API_BASE}/proposals?status=pending`);
+        const res = await apiFetch(`${API_BASE}/proposals?status=pending`);
         const list = await res.json();
         if (!Array.isArray(list) || list.length === 0) return;
 
@@ -259,7 +266,7 @@ async function loadPendingOnGraph() {
 // Fonction pour calculer une position automatique
 async function calculateAutoPosition() {
     try {
-        const res = await fetch(`${API_BASE}/graph`);
+        const res = await apiFetch(`${API_BASE}/graph`);
         const data = await res.json();
 
         if (!data.nodes || data.nodes.length === 0) {
@@ -309,7 +316,7 @@ async function addPerson(nom, origine, x, y) {
         y = pos.y;
     }
 
-    const res = await fetch(`${API_BASE}/person`, {
+    const res = await apiFetch(`${API_BASE}/person`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nom, origine: origine || null, x, y })
@@ -346,7 +353,7 @@ async function addPersonList(noms, origine) {
     let radius = 200;
 
     try {
-        const res = await fetch(`${API_BASE}/graph`);
+        const res = await apiFetch(`${API_BASE}/graph`);
         const data = await res.json();
 
         if (data.nodes && data.nodes.length > 0) {
@@ -382,7 +389,7 @@ async function addPersonList(noms, origine) {
         const y = Math.round(centerY + radius * Math.sin(angle));
 
         try {
-            const res = await fetch(`${API_BASE}/person`, {
+            const res = await apiFetch(`${API_BASE}/person`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -417,7 +424,7 @@ async function addPersonList(noms, origine) {
 
 // Fonction pour supprimer une personne
 async function deletePerson(nom) {
-    const res = await fetch(`${API_BASE}/person`, {
+    const res = await apiFetch(`${API_BASE}/person`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nom })
@@ -433,7 +440,7 @@ async function deletePerson(nom) {
 
 // Fonction pour mettre à jour une personne
 async function updatePerson(oldNom, nom, origine) {
-    const res = await fetch(`${API_BASE}/person`, {
+    const res = await apiFetch(`${API_BASE}/person`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ oldNom, nom, origine })
@@ -449,7 +456,7 @@ async function updatePerson(oldNom, nom, origine) {
 
 // Fonction pour ajouter une relation
 async function addRelation(source, target, type) {
-    const res = await fetch(`${API_BASE}/relation`, {
+    const res = await apiFetch(`${API_BASE}/relation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source, target, type })
@@ -465,7 +472,7 @@ async function addRelation(source, target, type) {
 
 // Fonction pour supprimer une relation
 async function deleteRelation(source, target, type) {
-    const res = await fetch(`${API_BASE}/relation`, {
+    const res = await apiFetch(`${API_BASE}/relation`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source, target, type })
@@ -487,7 +494,7 @@ async function dissolveGroup(members) {
     for (const member of members) {
         const nom = member.data('id');
         try {
-            const res = await fetch(`${API_BASE}/person`, {
+            const res = await apiFetch(`${API_BASE}/person`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ oldNom: nom, nom: nom, origine: null })
@@ -513,7 +520,7 @@ async function deleteAll() {
         return;
     }
 
-    const res = await fetch(`${API_BASE}/all`, {
+    const res = await apiFetch(`${API_BASE}/all`, {
         method: "DELETE"
     });
 
@@ -527,7 +534,7 @@ async function deleteAll() {
 
 // Fonction pour sauvegarder les coordonnées d'un nœud
 async function saveNodePosition(nom, x, y) {
-    await fetch(`${API_BASE}/person/coordinates`, {
+    await apiFetch(`${API_BASE}/person/coordinates`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nom, x: Math.round(x), y: Math.round(y) })
@@ -543,7 +550,7 @@ async function submitProposal(type, data) {
     }
     const authorEmail = document.getElementById("author-email")?.value?.trim() || null;
     try {
-        const res = await fetch(`${API_BASE}/proposals`, {
+        const res = await apiFetch(`${API_BASE}/proposals`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ authorName: authorName || "Anonyme", authorEmail, type, data })
@@ -563,7 +570,7 @@ async function submitProposal(type, data) {
 async function loadProposalStats() {
     if (!isProposeMode) return;
     try {
-        const res = await fetch(`${API_BASE}/proposals/stats`);
+        const res = await apiFetch(`${API_BASE}/proposals/stats`);
         const data = await res.json();
         const el = document.getElementById("proposal-stats");
         if (el) el.textContent = `${data.pending || 0} proposition(s) en attente`;
@@ -572,7 +579,7 @@ async function loadProposalStats() {
 
 async function loadPendingProposals() {
     try {
-        const res = await fetch(`${API_BASE}/proposals?status=pending`);
+        const res = await apiFetch(`${API_BASE}/proposals?status=pending`);
         const list = await res.json();
         const container = document.getElementById("proposals-list");
         if (!container) return;
@@ -611,7 +618,7 @@ async function loadPendingProposals() {
 async function approveProposal(id) {
     const reviewedBy = prompt("Votre nom (reviewer) :", "Admin") || "Admin";
     try {
-        const res = await fetch(`${API_BASE}/proposals/${id}/approve`, {
+        const res = await apiFetch(`${API_BASE}/proposals/${id}/approve`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ reviewedBy })
@@ -633,7 +640,7 @@ async function rejectProposal(id) {
     const comment = prompt("Commentaire (optionnel) :");
     const reviewedBy = prompt("Votre nom (reviewer) :", "Admin") || "Admin";
     try {
-        const res = await fetch(`${API_BASE}/proposals/${id}/reject`, {
+        const res = await apiFetch(`${API_BASE}/proposals/${id}/reject`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ reviewedBy, comment: comment || null })
@@ -808,7 +815,7 @@ cy.on('dbltap', 'node[type="group"]', function (evt) {
 
 // Fonction pour exporter les données
 async function exportData() {
-    const res = await fetch(`${API_BASE}/export`);
+    const res = await apiFetch(`${API_BASE}/export`);
     const data = await res.json();
 
     // Créer un fichier JSON et le télécharger
@@ -838,7 +845,7 @@ async function importData(file) {
                 return;
             }
 
-            const res = await fetch(`${API_BASE}/import`, {
+            const res = await apiFetch(`${API_BASE}/import`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
@@ -860,8 +867,29 @@ async function importData(file) {
     reader.readAsText(file);
 }
 
+async function initAuth() {
+    const bar = document.getElementById("auth-bar");
+    if (!bar) return;
+    try {
+        const res = await apiFetch(`${API_BASE}/auth/me`);
+        if (res.ok) {
+            const user = await res.json();
+            bar.innerHTML = `Connecté : ${user.email} · <button type="button" id="auth-logout">Déconnexion</button>`;
+            document.getElementById("auth-logout").addEventListener("click", async () => {
+                await apiFetch(`${API_BASE}/auth/logout`, { method: "POST" });
+                window.location.reload();
+            });
+        } else {
+            bar.innerHTML = '<a href="login.html">Connexion</a>';
+        }
+    } catch {
+        bar.innerHTML = '<a href="login.html">Connexion</a>';
+    }
+}
+
 // Initialisation après chargement du DOM
 document.addEventListener('DOMContentLoaded', () => {
+    initAuth();
     applyProposeModeUI();
 
     // Gestionnaire du formulaire personne
@@ -905,7 +933,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         similarTimeout = setTimeout(async () => {
             try {
-                const res = await fetch(`${API_BASE}/persons/similar?q=${encodeURIComponent(q)}`);
+                const res = await apiFetch(`${API_BASE}/persons/similar?q=${encodeURIComponent(q)}`);
                 const data = await res.json();
                 if (data.similar && data.similar.length > 0) {
                     hint.textContent = 'Noms proches existants : ' + data.similar.join(', ');
@@ -937,7 +965,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isProposeMode) {
             let centerX = 500, centerY = 350, radius = 200;
             try {
-                const res = await fetch(`${API_BASE}/graph`);
+                const res = await apiFetch(`${API_BASE}/graph`);
                 const data = await res.json();
                 if (data.nodes && data.nodes.length > 0) {
                     centerX = data.nodes.reduce((s, n) => s + (n.x || 0), 0) / data.nodes.length;
@@ -956,7 +984,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const x = Math.round(centerX + radius * Math.cos(angle));
                 const y = Math.round(centerY + radius * Math.sin(angle));
                 try {
-                    const res = await fetch(`${API_BASE}/proposals`, {
+                    const res = await apiFetch(`${API_BASE}/proposals`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -1022,7 +1050,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             timeout = setTimeout(async () => {
                 try {
-                    const res = await fetch(`${API_BASE}/persons/similar?q=${encodeURIComponent(q)}&limit=8`);
+                    const res = await apiFetch(`${API_BASE}/persons/similar?q=${encodeURIComponent(q)}&limit=8`);
                     const data = await res.json();
                     container.innerHTML = "";
                     if (data.similar && data.similar.length > 0) {

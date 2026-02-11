@@ -2,7 +2,7 @@
 
 ## 🎯 Vue d'ensemble
 
-Application web permettant de créer et visualiser un graphe de relations entre personnes. Les utilisateurs peuvent ajouter des personnes, créer des relations entre elles, et déplacer les nœuds pour organiser visuellement le graphe. **Mode collaborateur** : partage du lien avec `?mode=propose` pour que des tiers soumettent des propositions (ajout/modification/suppression) que l'administrateur peut approuver ou rejeter. Les approbations créent des snapshots (versions) du graphe.
+Application web permettant de créer et visualiser un graphe de relations entre personnes. **Deux modes** : **admin** (en local, hostname localhost/127.0.0.1) a accès à tout le graphe et peut ajouter/modifier/supprimer directement ; **utilisateur** (hébergé ou `?mode=propose`) ne peut que soumettre des propositions (ajout/modification/suppression) que l'admin approuve ou rejette. Chaque utilisateur doit être une personne du graphe : inscription par email + choix du nœud (recherche par nom), un seul compte par nœud. **Visibilité du graphe** : non connecté = nœuds/arêtes sans noms ni types (ids 6 chiffres, type CONNECTION) ; connecté = selon niveau (1 = noms des voisins, 2 = + types des relations avec soi, 3 = + noms des voisins de voisins). Les propositions ne sont visibles que par leur auteur (email) et par l'admin. Les approbations créent des snapshots (versions).
 
 ## 🏗️ Architecture
 
@@ -11,23 +11,27 @@ Application web permettant de créer et visualiser un graphe de relations entre 
 **Fichier principal**: `backend/index.js`
 
 - Port: `process.env.PORT` (défaut 3000)
-- CORS: `process.env.CORS_ORIGIN` (défaut `*` en dev)
-- Connexion Neo4j via `neo4j.js` (variables d’environnement, voir ci‑dessous)
-- Module snapshots : `backend/snapshots.js` (création/liste/restauration de versions JSON)
-- Dossier `backend/snapshots/` : fichiers JSON des versions (format `snapshot-{timestamp}-{id}.json`)
+- CORS: `process.env.CORS_ORIGIN` (défaut `*` ; si `*` et requête avec `Origin`, la réponse renvoie cette origine pour permettre `credentials: 'include'`).
+- Connexion Neo4j via `neo4j.js` ; module **ids.js** : `generateUniqueNodeId`, `generateUniqueEdgeId`, `migrateNodeIdsAndEdgeIds` (IDs 6 chiffres pour Person et relations).
+- **Base SQL** : `backend/db.js` (PostgreSQL via `DATABASE_URL`, ex. Supabase). Table `users` (email, password_hash, person_node_id, visibility_level, created_at) ; table `session` (connect-pg-simple). `initDb()` au démarrage.
+- Session : `express-session` + `connect-pg-simple` si `DATABASE_URL`, sinon mémoire. Cookie httpOnly, 7 jours. `isAdmin(req)` = hostname localhost ou 127.0.0.1 ; `requireAdmin` = 403 si non admin ; `requireAuth` = 401 si non connecté.
+- Écritures directes (POST/PATCH/DELETE person, POST/DELETE relation, POST /import) protégées par **requireAdmin** : 403 en dehors de localhost.
+- Module snapshots : `backend/snapshots.js` (création/liste/restauration de versions JSON).
+- Dossier `backend/snapshots/` : fichiers JSON des versions (format `snapshot-{timestamp}-{id}.json`).
 - **Production** : en dehors des tests, le backend sert le frontend en statique (`express.static("../frontend")`) pour un déploiement en une seule URL.
 
 **Configuration Neo4j**: `backend/neo4j.js`
 
-- Lit `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`. Valeurs par défaut dans le fichier : `bolt://127.0.0.1:7687`, neo4j, password (utilisées si variables absentes, ex. en mode test sans dotenv).
-- En production (ex. Neo4j Aura) : définir ces variables dans `.env` ou chez l’hébergeur (voir `DEPLOI.md`)
+- Lit `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`. Valeurs par défaut : `bolt://127.0.0.1:7687`, neo4j, password (utilisées si variables absentes, ex. en mode test sans dotenv).
+- En production (ex. Neo4j Aura) : définir ces variables dans `.env` ou chez l’hébergeur (voir `DEPLOI.md`).
 
 ### Frontend (HTML/CSS/JS + Cytoscape.js)
 
 **Fichiers**:
 
-- `frontend/index.html` - Structure avec formulaires et conteneur graphe
-- `frontend/renderer.js` - Initialisation Cytoscape, gestion événements, API calls. `API_BASE` : en dev (localhost:8080) → `http://localhost:3000`, sinon `window.location.origin` (prod même domaine).
+- `frontend/index.html` - Structure avec formulaires et conteneur graphe ; bloc `#auth-bar` (lien Connexion ou "Connecté : email" + Déconnexion).
+- `frontend/login.html` - Page connexion/inscription : formulaire login (email, mot de passe) ; inscription (email, mot de passe, recherche par nom → choix du nœud → POST /auth/register). Redirection vers index.html après login/register.
+- `frontend/renderer.js` - Initialisation Cytoscape, gestion événements, API calls. `API_BASE` : en dev (localhost:8080) → `http://localhost:3000`, sinon `window.location.origin`. Tous les appels API passent par **apiFetch** (fetch avec `credentials: 'include'`). Au chargement : `initAuth()` (GET /auth/me, mise à jour de #auth-bar). Mode propose : `isProposeMode = !isLocalhost || urlParams.get("mode") === "propose"` ; en mode propose les formulaires envoient des propositions (POST /proposals) au lieu des endpoints directs.
 - `frontend/style.css` - Styles responsive avec sidebar toggleable
 
 **Serveur**: Python HTTP server sur port 8080 (dev local)
@@ -43,9 +47,9 @@ Application web permettant de créer et visualiser un graphe de relations entre 
 
 **Dossier**: `backend/__tests__/`
 
-- `setup.js` : clearDatabase, createTestPerson, createTestProposal, etc.
-- `person.test.js`, `relation.test.js`, `proposals.test.js`, `snapshots.test.js`, `export-import.test.js`
-- Commande : `npm test` (Jest + supertest, Neo4j requis).
+- `setup.js` : clearDatabase, createTestPerson (avec nodeId), createTestRelation (avec edgeId), createTestProposal(authorName, type, data, authorEmail?), etc.
+- `person.test.js`, `relation.test.js`, `proposals.test.js`, `snapshots.test.js`, `export-import.test.js`, **auth.test.js**, **graph-visibility.test.js**, **available-for-signup.test.js**
+- Commande : `npm test` (Jest + supertest, Neo4j requis). Tests auth complets (register → login → me → logout) nécessitent `DATABASE_URL`.
 - **Base pour les tests** : dev et tests utilisent la même Neo4j (docker-compose, **7687**). Défaut `bolt://127.0.0.1:7687` pour limiter les ECONNRESET sous WSL. Voir `backend/__tests__/README.md`.
 
 ## 📊 Modèle de Données
@@ -53,13 +57,15 @@ Application web permettant de créer et visualiser un graphe de relations entre 
 ### Nœud `Person`
 
 - **Format du nom** : obligatoire **Prénom NOM** (regex `^[A-Z][a-z]* [A-Z][A-Z-]*$`). Exemple : `Jean HEUDE-LEGRANG`. Validé côté backend (POST /person, PATCH /person, approve add_node/modify_node) et frontend.
+- **nodeId** : identifiant unique 6 chiffres (string), généré à la création ; utilisé pour lier un compte utilisateur (table `users`) et pour la visibilité du graphe (réponses filtrées exposent id = nodeId).
 
 ```cypher
 (:Person {
   nom: String,      // UNIQUE, REQUIRED - format "Prénom NOM" (ex. Jean DUPONT)
   origine: String,  // OPTIONAL - origine de la personne
   x: Number,        // REQUIRED - position X dans le graphe
-  y: Number         // REQUIRED - position Y dans le graphe
+  y: Number,        // REQUIRED - position Y dans le graphe
+  nodeId: String    // REQUIRED - 6 chiffres, unique
 })
 ```
 
@@ -68,17 +74,18 @@ Application web permettant de créer et visualiser un graphe de relations entre 
 - `[:FAMILLE]` - Relation familiale (couleur: bleu)
 - `[:AMIS]` - Relation amicale (couleur: vert)
 - `[:AMOUR]` - Relation amoureuse (couleur: rouge)
+- Chaque relation a une propriété **edgeId** (6 chiffres, unique). En réponses filtrées (non admin), le type peut être masqué et renvoyé comme **CONNECTION** (couleur grise frontend).
 
 ### Nœud `Proposal` (collaboration)
 
-Séparé des Person (pas de relations entre eux). Stocke les propositions en attente de validation.
+Séparé des Person (pas de relations entre eux). Stocke les propositions en attente de validation. **Filtrage** : GET /proposals et GET /proposals/:id ne renvoient que les propositions dont l'utilisateur connecté est l'auteur (authorEmail = session.user.email) ou si admin.
 
 ```cypher
 (:Proposal {
   id: String,           // UUID unique
   authorName: String,
-  authorEmail: String,  // optionnel
-  type: String,        // add_node | add_relation | modify_node | delete_node | delete_relation
+  authorEmail: String,  // optionnel - utilisé pour filtrer par auteur
+  type: String,         // add_node | add_relation | modify_node | delete_node | delete_relation
   data: String,        // JSON stringifié des données
   status: String,      // pending | approved | rejected
   createdAt: String,   // ISO timestamp
@@ -88,17 +95,30 @@ Séparé des Person (pas de relations entre eux). Stocke les propositions en att
 })
 ```
 
+### Table `users` (PostgreSQL)
+
+- **email** (unique) – identifiant de connexion
+- **password_hash** – bcrypt
+- **person_node_id** (6 chiffres) – nœud Person réservé à ce compte (un seul compte par nœud)
+- **visibility_level** (integer, défaut 1) – niveau de visibilité du graphe (1 = noms des voisins, 2 = + types des relations avec soi, 3 = + noms des voisins de voisins)
+- **created_at**
+
 ## 🔌 API REST
 
 ### GET /graph
 
-Récupère tous les nœuds et relations
+Récupère le graphe selon le contexte (admin / anonyme / connecté).
+
+- **Admin** (hostname localhost ou 127.0.0.1) : réponse complète (id = nom, nodeId, nom, origine, x, y ; edges avec source/target = nom, type, edgeId).
+- **Non connecté** : nœuds avec `id` = nodeId (6 chiffres), x, y (pas de nom ni origine) ; arêtes avec source/target = nodeId, `type: "CONNECTION"`, edgeId.
+- **Connecté** : selon `visibility_level` de la session (1 = noms des voisins, 2 = + types des relations avec soi, 3 = + noms des voisins de voisins). Réponse avec id = nodeId ; nom/origine et type d'arête exposés selon le niveau.
 
 ```json
-Response: {
-  "nodes": [{ "id": "nom", "nom": "Jean DUPONT", "origine": "...", "x": 0, "y": 0 }],
-  "edges": [{ "source": "Jean DUPONT", "target": "Marie MARTIN", "type": "AMIS" }]
-}
+// Admin
+{ "nodes": [{ "id": "nom", "nodeId": "123456", "nom": "Jean DUPONT", "origine": "...", "x": 0, "y": 0 }], "edges": [{ "source": "Jean DUPONT", "target": "Marie MARTIN", "type": "AMIS", "edgeId": "654321" }] }
+
+// Anonyme / filtré
+{ "nodes": [{ "id": "123456", "x": 0, "y": 0 }], "edges": [{ "source": "123456", "target": "654321", "type": "CONNECTION", "edgeId": "111222" }] }
 ```
 
 ### GET /persons/similar
@@ -110,19 +130,36 @@ Query: ?q=jean&limit=8   (limit optionnel, défaut 3, max 15)
 Response: { "similar": ["Jean DUPONT", "Jeanne MARTIN", "Juan GARCIA", ...] }
 ```
 
+### GET /persons/available-for-signup
+
+Liste des Person dont le nodeId n'est pas encore lié à un compte (pour l'inscription). Filtre optionnel par nom.
+
+```json
+Query: ?q=Jean
+Response: { "available": [{ "nodeId": "123456", "nom": "Jean DUPONT" }, ...] }
+```
+503 si `DATABASE_URL` absent.
+
+### Auth (session, credentials)
+
+- **POST /auth/register** – Inscription. Body: `{ email, password, person_node_id }` (person_node_id = 6 chiffres). Vérifie que le nœud existe en Neo4j et n'est pas déjà pris ; hash bcrypt ; insertion dans `users`. 400 si nœud inexistant ou déjà pris, 503 si pas de DB.
+- **POST /auth/login** – Connexion. Body: `{ email, password }`. Crée la session ; réponse `{ user: { email, person_node_id, visibility_level } }`. 401 si identifiants incorrects, 503 si pas de DB.
+- **GET /auth/me** – Utilisateur courant (session). 401 si non connecté.
+- **POST /auth/logout** – Déconnexion (destruction de la session).
+
 ### POST /person
 
-Crée une nouvelle personne. Le nom doit respecter le format Prénom NOM.
+Crée une nouvelle personne. Le nom doit respecter le format Prénom NOM. **Réservé à l'admin** (requireAdmin) : 403 en dehors de localhost.
 
 ```json
 Body: { "nom": "Jean DUPONT", "origine": "Travail", "x": 100, "y": 200 }
 Response: 201 Created
-Erreur: 400 si nom manquant, format invalide (Prénom NOM) ou coordonnées manquantes
+Erreur: 400 si nom manquant, format invalide (Prénom NOM) ou coordonnées manquantes ; 403 si non admin
 ```
 
 ### DELETE /person
 
-Supprime une personne et ses relations
+Supprime une personne et ses relations. **Réservé à l'admin** : 403 en dehors de localhost.
 
 ```json
 Body: { "nom": "Jean DUPONT" }
@@ -131,7 +168,7 @@ Response: 200 OK
 
 ### PATCH /person/coordinates
 
-Met à jour les coordonnées d'une personne
+Met à jour les coordonnées d'une personne. **Réservé à l'admin** : 403 en dehors de localhost.
 
 ```json
 Body: { "nom": "Jean DUPONT", "x": 150, "y": 250 }
@@ -140,7 +177,7 @@ Response: 200 OK
 
 ### PATCH /person
 
-Met à jour le nom et/ou l'origine d'une personne. Le nouveau nom doit respecter le format Prénom NOM.
+Met à jour le nom et/ou l'origine d'une personne. Le nouveau nom doit respecter le format Prénom NOM. **Réservé à l'admin** : 403 en dehors de localhost.
 
 ```json
 Body: { "oldNom": "Jean DUPONT", "nom": "Jean MARTIN", "origine": "Travail" }
@@ -150,7 +187,7 @@ Erreur: 400 si nouveau nom au mauvais format
 
 ### POST /relation
 
-Crée une relation entre deux personnes
+Crée une relation entre deux personnes. **Réservé à l'admin** : 403 en dehors de localhost.
 
 ```json
 Body: { "source": "Jean DUPONT", "target": "Marie MARTIN", "type": "AMIS" }
@@ -159,7 +196,7 @@ Response: 201 Created
 
 ### DELETE /relation
 
-Supprime une relation
+Supprime une relation. **Réservé à l'admin** : 403 en dehors de localhost.
 
 ```json
 Body: { "source": "Jean DUPONT", "target": "Marie MARTIN", "type": "AMIS" }
@@ -188,7 +225,7 @@ Response: {
 
 ### POST /import
 
-Importe et restaure les données (supprime tout avant)
+Importe et restaure les données (supprime tout avant). **Réservé à l'admin** : 403 en dehors de localhost.
 
 ```json
 Body: { "nodes": [...], "edges": [...] }
@@ -197,11 +234,11 @@ Response: { "message": "Import réussi", "nodesCount": 5, "edgesCount": 3 }
 
 ### Propositions (collaboration)
 
-- **POST /proposals** – Soumettre une proposition. Body: `{ authorName, authorEmail?, type, data }`. Types: add_node, add_relation, modify_node, delete_node, delete_relation.
-- **GET /proposals/stats** – Statistiques (pending, approved, rejected, total).
-- **GET /proposals** – Liste des propositions. Query: `?status=pending|approved|rejected|all` (défaut: pending).
-- **GET /proposals/:id** – Détails d'une proposition.
-- **POST /proposals/:id/approve** – Approuver (applique le changement, crée un snapshot). Body: `{ reviewedBy, comment? }`. Pour add_node et modify_node, le nom (data.nom / data.newNom) doit respecter le format Prénom NOM, sinon 400.
+- **POST /proposals** – Soumettre une proposition (public). Body: `{ authorName, authorEmail?, type, data }`. Types: add_node, add_relation, modify_node, delete_node, delete_relation.
+- **GET /proposals/stats** – Admin : stats globales. Connecté (non admin) : stats uniquement pour les propositions de l'utilisateur (authorEmail = session.user.email). Non connecté : `{ pending: 0, approved: 0, rejected: 0, total: 0 }`.
+- **GET /proposals** – Admin : toutes les propositions. Connecté : uniquement celles dont authorEmail = session.user.email. Non connecté : 401.
+- **GET /proposals/:id** – Détails d'une proposition. Admin : accès à toute. Connecté : uniquement si authorEmail = session.user.email, sinon 403.
+- **POST /proposals/:id/approve** – Approuver (applique le changement, crée un snapshot). Body: `{ reviewedBy, comment? }`. Pour add_node et modify_node, le nom doit respecter le format Prénom NOM, sinon 400.
 - **POST /proposals/:id/reject** – Rejeter. Body: `{ reviewedBy, comment }`.
 
 ### Snapshots (versions)
@@ -249,9 +286,11 @@ Response: { "message": "Import réussi", "nodesCount": 5, "edgesCount": 3 }
 
 ### Interface Utilisateur
 
-1. **Sidebar toggleable** (bouton "≡ Menu" en haut à gauche)
-2. **Mode collaborateur** (`?mode=propose`) : bloc "Proposer des modifications" (Votre nom, email), stats "X proposition(s) en attente". Masqué : Tout supprimer, Importer.
-3. **Propositions en attente** : section toujours visible avec liste et bouton Rafraîchir. En mode admin : boutons Approuver/Rejeter sur chaque proposition. En mode propose : liste en lecture seule.
+1. **Auth bar** (sous le titre) : lien "Connexion" (vers login.html) ou "Connecté : email" + bouton Déconnexion. Mise à jour au chargement via GET /auth/me (apiFetch avec credentials).
+2. **Page login.html** : formulaire Connexion (email, mot de passe) ; inscription (email, mot de passe, recherche par nom → GET /persons/available-for-signup → choix du nœud → POST /auth/register). Redirection vers index.html après succès.
+3. **Sidebar toggleable** (bouton "≡ Menu" en haut à gauche)
+4. **Mode collaborateur** (`?mode=propose` ou hors localhost) : bloc "Proposer des modifications" (Votre nom, email), stats "X proposition(s) en attente". Masqué : Tout supprimer, Importer. Les formulaires (personne, liste, relation) envoient des propositions (POST /proposals) au lieu des endpoints directs ; les écritures directes (POST /person, etc.) sont refusées (403) par le backend en dehors de localhost.
+5. **Propositions en attente** : section toujours visible avec liste et bouton Rafraîchir. En mode admin : boutons Approuver/Rejeter sur chaque proposition. En mode propose : liste en lecture seule (filtrée par auteur côté API).
 4. **Formulaire Personne** : consigne « Nom en majuscule OBLIGATOIRE, exemple : Jean HEUDE-LEGRANG » ; champ nom (format Prénom NOM, validé par regex) ; sous le champ, affichage des **3 noms les plus proches** existants (GET /persons/similar) pour éviter les doublons ; origine (optionnel), x/y (auto si vide).
 5. **Formulaire Liste** : noms CSV au format Prénom NOM, origine optionnelle (positions auto)
 6. **Formulaire Relation** : source et cible via **sélection obligatoire** : l’utilisateur tape un nom ou le début du nom, une liste de noms existants s’affiche (GET /persons/similar?q=…&limit=8) ; il doit **cliquer** sur un nom pour valider la source et un pour la cible (la saisie libre n’est pas acceptée à l’envoi). Type : select FAMILLE / AMIS / AMOUR.
@@ -277,12 +316,12 @@ Les propositions en attente sont affichées sur le graphe avec une transparence 
 - **Double-clic groupe** → Info/Dissoudre (en mode propose : message "Seul l'administrateur peut dissoudre")
 - **Drag nœud** → Déplace avec auto-save (en mode propose : pas de sauvegarde, drag visuel seulement)
 
-### Mode collaborateur (URL `?mode=propose`)
+### Mode collaborateur (URL `?mode=propose` ou hors localhost)
 
-- Détection : `urlParams.get("mode") === "propose"` dans `renderer.js`.
-- Tous les ajouts/modifications/suppressions passent par **POST /proposals** au lieu des endpoints directs.
+- Détection : `isProposeMode = !isLocalhost || urlParams.get("mode") === "propose"` dans `renderer.js`.
+- En mode propose, tous les ajouts/modifications/suppressions passent par **POST /proposals** au lieu des endpoints directs ; le backend renvoie 403 sur POST /person, PATCH /person, DELETE /person, POST /relation, DELETE /relation, POST /import en dehors de localhost (requireAdmin).
 - Champ "Votre nom" obligatoire pour soumettre une proposition.
-- Lien à partager pour collaborateurs : `http://localhost:8080?mode=propose`.
+- Lien à partager pour collaborateurs : `http://localhost:8080?mode=propose` (ou l'URL hébergée).
 
 ## 🚀 Démarrage du Projet
 
@@ -359,22 +398,25 @@ Accès:
 
 ### Patterns de Code
 
-- **Frontend**: Vanilla JS avec async/await pour les API calls
-- **Backend**: Express avec runQuery() pour Neo4j
+- **Frontend**: Vanilla JS avec async/await ; **apiFetch(url, opts)** = fetch avec `credentials: 'include'` pour envoyer le cookie de session
+- **Backend**: Express avec runQuery() pour Neo4j, runSql() pour PostgreSQL ; isAdmin(req), requireAdmin, requireAuth
 - **Erreurs**: Gestion avec try-catch et codes HTTP appropriés
-- **CORS**: Headers manuels dans le backend
+- **CORS**: Headers manuels ; si CORS_ORIGIN = `*` et requête a Origin, renvoyer cette origine (pour credentials)
 
 ### Résolution de Problèmes Courants
 
 1. **Graphe ne s'affiche pas**: Vérifier backend démarré + Neo4j running
 2. **ERR_CONNECTION_REFUSED**: Backend pas démarré sur port 3000
-3. **Nœuds ne bougent pas**: Vérifier autoungrabify: false
-4. **Sidebar ne réapparaît pas**: Utiliser transform au lieu de margin-left
-5. **Hitbox trop petite**: Augmenter width/height des nœuds (actuellement 60x60)
-6. **Mode propose** : Vérifier URL avec `?mode=propose` ; "Votre nom" requis pour soumettre
-7. **Tests** : Même Neo4j que le dev (7687, docker-compose). `docker-compose up -d` puis `npm test` dans backend. Les défauts Neo4j sont dans `neo4j.js` (uri/user/password), donc les tests peuvent tourner sans `.env`. Sous WSL, éviter un second conteneur limite les ECONNRESET.
-8. **Nom refusé (400)** : Vérifier le format Prénom NOM (ex. Jean DUPONT), pas uniquement le prénom.
-9. **Relation non envoyée** : Source et cible doivent être choisies en cliquant sur un nom dans les listes (taper puis cliquer) ; la saisie libre n’est pas acceptée.
+3. **CORS / credentials** : Si "Access-Control-Allow-Origin must not be * when credentials is include", le backend renvoie déjà l'origine de la requête quand CORS_ORIGIN est `*` ; vérifier que le front utilise apiFetch (credentials: 'include').
+4. **403 sur POST /person (ou relation, import)** : Réservé à l'admin (hostname localhost/127.0.0.1). En production, les utilisateurs passent par POST /proposals.
+5. **Nœuds ne bougent pas**: Vérifier autoungrabify: false
+6. **Sidebar ne réapparaît pas**: Utiliser transform au lieu de margin-left
+7. **Hitbox trop petite**: Augmenter width/height des nœuds (actuellement 60x60)
+8. **Mode propose** : Vérifier URL avec `?mode=propose` ou accès hors localhost ; "Votre nom" requis pour soumettre
+9. **Auth 503** : DATABASE_URL non défini ; configurer une base PostgreSQL (ex. Supabase) et ajouter DATABASE_URL dans .env.
+10. **Tests** : Même Neo4j que le dev (7687, docker-compose). `docker-compose up -d` puis `npm test` dans backend. Tests auth complets : définir DATABASE_URL pour tester register/login/me/logout.
+11. **Nom refusé (400)** : Vérifier le format Prénom NOM (ex. Jean DUPONT), pas uniquement le prénom.
+12. **Relation non envoyée** : Source et cible doivent être choisies en cliquant sur un nom dans les listes (taper puis cliquer) ; la saisie libre n’est pas acceptée.
 
 ### Conventions de Développement
 
