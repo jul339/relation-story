@@ -616,6 +616,35 @@ async function loadPendingProposals() {
     }
 }
 
+async function loadUserProposals() {
+    try {
+        const res = await apiFetch(`${API_BASE}/proposals`);
+        const list = await res.json();
+        const container = document.getElementById("proposals-list");
+        if (!container) return;
+        container.innerHTML = "";
+        if (list.length === 0) {
+            container.innerHTML = "<p class=\"proposal-stats\">Aucune proposition.</p>";
+            return;
+        }
+        const typeLabel = { add_node: "Ajouter personne", add_relation: "Ajouter relation", modify_node: "Modifier personne", delete_node: "Supprimer personne", delete_relation: "Supprimer relation" };
+        list.forEach(p => {
+            const dataStr = typeof p.data === "object" ? JSON.stringify(p.data) : p.data;
+            const statusLabel = p.status === "pending" ? "En attente" : p.status === "approved" ? "Approuvée" : "Rejetée";
+            const card = document.createElement("div");
+            card.className = "proposal-card";
+            card.innerHTML = `
+                <div class="proposal-meta">${typeLabel[p.type] || p.type} · ${statusLabel}</div>
+                <div>${dataStr}</div>`;
+            container.appendChild(card);
+        });
+    } catch (e) {
+        console.error(e);
+        const container = document.getElementById("proposals-list");
+        if (container) container.innerHTML = "<p>Erreur chargement propositions.</p>";
+    }
+}
+
 async function approveProposal(id) {
     const reviewedBy = prompt("Votre nom (reviewer) :", "Admin") || "Admin";
     try {
@@ -660,27 +689,27 @@ async function rejectProposal(id) {
 
 function applyProposeModeUI() {
     const authorSection = document.getElementById("propose-author-section");
-    const adminSection = document.getElementById("proposals-admin-section");
     const deleteAllBtn = document.getElementById("delete-all");
     const importBtn = document.getElementById("import");
     const loginHint = document.getElementById("propose-login-hint");
     const statsEl = document.getElementById("proposal-stats");
+    const proposalsTitle = document.getElementById("proposals-panel-title");
+    if (proposalsTitle) proposalsTitle.textContent = isProposeMode ? "Historique des propositions" : "Propositions en attente";
     if (isProposeMode) {
         if (authorSection) authorSection.style.display = "block";
-        if (adminSection) adminSection.style.display = "none";
         if (deleteAllBtn) deleteAllBtn.style.display = "none";
         if (importBtn) importBtn.style.display = "none";
         if (currentUser) {
             if (loginHint) loginHint.style.display = "none";
             if (statsEl) statsEl.style.display = "";
             loadProposalStats();
+            loadUserProposals();
         } else {
             if (loginHint) loginHint.style.display = "block";
             if (statsEl) statsEl.style.display = "none";
         }
     } else {
         if (authorSection) authorSection.style.display = "none";
-        if (adminSection) adminSection.style.display = "block";
         if (deleteAllBtn) deleteAllBtn.style.display = "block";
         if (importBtn) importBtn.style.display = "block";
         loadPendingProposals();
@@ -1136,21 +1165,44 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Rafraîchir les propositions (admin)
-    document.getElementById('refresh-proposals').addEventListener('click', loadPendingProposals);
+    // Rafraîchir les propositions (admin) ou historique (utilisateur)
+    document.getElementById('refresh-proposals').addEventListener('click', () => {
+        if (isProposeMode && currentUser) loadUserProposals();
+        else loadPendingProposals();
+    });
 
-    // Bouton pour afficher/cacher le menu
-    document.getElementById('toggle-sidebar').addEventListener('click', () => {
-        const sidebar = document.getElementById('sidebar');
-        console.log('Avant toggle:', sidebar.className);
-        sidebar.classList.toggle('hidden');
-        console.log('Après toggle:', sidebar.className);
+    // Sidebars : un seul panneau ouvert à la fois
+    const sidebar = document.getElementById('sidebar');
+    const panels = { donnees: document.getElementById('panel-donnees'), parametres: document.getElementById('panel-parametres'), propositions: document.getElementById('panel-propositions') };
+    const panelIds = ['donnees', 'parametres', 'propositions'];
+    let currentPanel = null;
 
-        // Forcer Cytoscape à se redimensionner après l'animation
-        setTimeout(() => {
-            cy.resize();
-            cy.fit();
-        }, 300);
+    function openPanel(id) {
+        if (currentPanel === id) {
+            sidebar.classList.add('hidden');
+            currentPanel = null;
+            document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
+        } else {
+            panelIds.forEach(pid => {
+                panels[pid].classList.toggle('active', pid === id);
+            });
+            document.querySelectorAll('.sidebar-btn').forEach((b, i) => {
+                b.classList.toggle('active', panelIds[i] === id);
+            });
+            sidebar.classList.remove('hidden');
+            currentPanel = id;
+        }
+        setTimeout(() => { cy.resize(); cy.fit(); }, 300);
+    }
+
+    document.getElementById('btn-donnees').addEventListener('click', () => openPanel('donnees'));
+    document.getElementById('btn-parametres').addEventListener('click', () => openPanel('parametres'));
+    document.getElementById('btn-propositions').addEventListener('click', () => openPanel('propositions'));
+    document.getElementById('close-sidebar').addEventListener('click', () => {
+        sidebar.classList.add('hidden');
+        currentPanel = null;
+        document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
+        setTimeout(() => { cy.resize(); cy.fit(); }, 300);
     });
 
     // Chargement initial

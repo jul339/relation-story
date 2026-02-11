@@ -12,90 +12,89 @@
     <h1>Graphe de relations</h1>
     <div id="auth-bar" style="text-align: center; margin-bottom: 8px;"></div>
 
-    <button id="toggle-sidebar">≡ Menu</button>
+    <div id="sidebar-buttons">
+        <button type="button" id="btn-donnees" class="sidebar-btn">Données</button>
+        <button type="button" id="btn-parametres" class="sidebar-btn">Paramètres</button>
+        <button type="button" id="btn-propositions" class="sidebar-btn">Propositions</button>
+    </div>
 
     <div id="main-container">
-        <div id="sidebar">
-            <!-- Mode collaborateur -->
-            <div id="propose-author-section" class="form-section" style="display: none;">
-                <h3>Proposer des modifications</h3>
-                <p class="propose-hint">Vos ajouts seront soumis pour validation.</p>
-                <p id="propose-login-hint" style="display: none;">Connectez-vous pour proposer. <a href="login.html">Connexion</a></p>
-                <p id="proposal-stats" class="proposal-stats"></p>
+        <div id="sidebar" class="hidden">
+            <button type="button" id="close-sidebar" class="close-sidebar" aria-label="Fermer">×</button>
+
+            <div id="panel-donnees" class="sidebar-panel">
+                <div id="propose-author-section" class="form-section" style="display: none;">
+                    <h3>Proposer des modifications</h3>
+                    <p class="propose-hint">Vos ajouts seront soumis pour validation.</p>
+                    <p id="propose-login-hint" style="display: none;">Connectez-vous pour proposer. <a href="login.html">Connexion</a></p>
+                    <p id="proposal-stats" class="proposal-stats"></p>
+                </div>
+                <div class="form-section">
+                    <h3>Ajouter une personne</h3>
+                    <form id="form-person">
+                        <p class="nom-consigne">Nom en majuscule OBLIGATOIRE, exemple : Jean HEUDE-LEGRANG</p>
+                        <input type="text" id="nom" placeholder="Prénom NOM" required>
+                        <p id="nom-similar-hint" class="nom-similar-hint" style="display: none;"></p>
+                        <input type="text" id="origine" placeholder="Origine (optionnel)">
+                        <input type="number" id="x" placeholder="Position X (auto si vide)">
+                        <input type="number" id="y" placeholder="Position Y (auto si vide)">
+                        <button type="submit">Ajouter</button>
+                    </form>
+                </div>
+                <div class="form-section">
+                    <h3>Ajouter une liste</h3>
+                    <form id="form-list">
+                        <textarea id="list-noms" placeholder="Noms séparés par des virgules&#10;Ex: Jean, Marie, Paul"
+                            rows="3" required></textarea>
+                        <input type="text" id="list-origine" placeholder="Origine (optionnel)">
+                        <button type="submit">Ajouter liste</button>
+                        <small style="color: #666;">Les positions sont calculées automatiquement</small>
+                    </form>
+                </div>
+                <div class="form-section">
+                    <h3>Ajouter une relation</h3>
+                    <form id="form-relation">
+                        <input type="text" id="source-nom" placeholder="Tapez puis choisir dans la liste" required autocomplete="off">
+                        <div id="source-suggestions" class="name-suggestions" role="listbox"></div>
+                        <input type="text" id="target-nom" placeholder="Tapez puis choisir dans la liste" required autocomplete="off">
+                        <div id="target-suggestions" class="name-suggestions" role="listbox"></div>
+                        <select id="type" required>
+                            <option value="">-- Type de relation --</option>
+                            <option value="FAMILLE">Famille</option>
+                            <option value="AMIS">Amis</option>
+                            <option value="AMOUR">Amour</option>
+                        </select>
+                        <button type="submit">Ajouter</button>
+                    </form>
+                </div>
             </div>
 
-            <!-- Formulaire pour ajouter une personne -->
-            <div class="form-section">
-                <h3>Ajouter une personne</h3>
-                <form id="form-person">
-                    <p class="nom-consigne">Nom en majuscule OBLIGATOIRE, exemple : Jean HEUDE-LEGRANG</p>
-                    <input type="text" id="nom" placeholder="Prénom NOM" required>
-                    <p id="nom-similar-hint" class="nom-similar-hint" style="display: none;"></p>
-                    <input type="text" id="origine" placeholder="Origine (optionnel)">
-                    <input type="number" id="x" placeholder="Position X (auto si vide)">
-                    <input type="number" id="y" placeholder="Position Y (auto si vide)">
-                    <button type="submit">Ajouter</button>
-                </form>
+            <div id="panel-parametres" class="sidebar-panel">
+                <div class="form-section">
+                    <h3>Contrôles</h3>
+                    <button id="zoom-in" class="action-btn">Zoom +</button>
+                    <button id="zoom-out" class="action-btn">Zoom -</button>
+                    <button id="fit" class="action-btn">Ajuster</button>
+                </div>
+                <div class="form-section">
+                    <h3>Actions</h3>
+                    <button id="refresh" class="action-btn">Rafraîchir</button>
+                    <button id="delete-all" class="action-btn danger">Tout supprimer</button>
+                </div>
+                <div class="form-section">
+                    <h3>Sauvegarde</h3>
+                    <button id="export" class="action-btn">Exporter</button>
+                    <input type="file" id="import-file" accept=".json" style="display: none;">
+                    <button id="import" class="action-btn">Importer</button>
+                </div>
             </div>
 
-            <!-- Formulaire pour ajouter une liste -->
-            <div class="form-section">
-                <h3>Ajouter une liste</h3>
-                <form id="form-list">
-                    <textarea id="list-noms" placeholder="Noms séparés par des virgules&#10;Ex: Jean, Marie, Paul"
-                        rows="3" required></textarea>
-                    <input type="text" id="list-origine" placeholder="Origine (optionnel)">
-                    <button type="submit">Ajouter liste</button>
-                    <small style="color: #666;">Les positions sont calculées automatiquement</small>
-                </form>
-            </div>
-
-            <!-- Formulaire pour ajouter une relation -->
-            <div class="form-section">
-                <h3>Ajouter une relation</h3>
-                <form id="form-relation">
-                    <input type="text" id="source-nom" placeholder="Tapez puis choisir dans la liste" required autocomplete="off">
-                    <div id="source-suggestions" class="name-suggestions" role="listbox"></div>
-                    <input type="text" id="target-nom" placeholder="Tapez puis choisir dans la liste" required autocomplete="off">
-                    <div id="target-suggestions" class="name-suggestions" role="listbox"></div>
-                    <select id="type" required>
-                        <option value="">-- Type de relation --</option>
-                        <option value="FAMILLE">Famille</option>
-                        <option value="AMIS">Amis</option>
-                        <option value="AMOUR">Amour</option>
-                    </select>
-                    <button type="submit">Ajouter</button>
-                </form>
-            </div>
-
-            <!-- Contrôles du graphe -->
-            <div class="form-section">
-                <h3>Contrôles</h3>
-                <button id="zoom-in" class="action-btn">Zoom +</button>
-                <button id="zoom-out" class="action-btn">Zoom -</button>
-                <button id="fit" class="action-btn">Ajuster</button>
-            </div>
-
-            <!-- Boutons d'action -->
-            <div class="form-section">
-                <h3>Actions</h3>
-                <button id="refresh" class="action-btn">Rafraîchir</button>
-                <button id="delete-all" class="action-btn danger">Tout supprimer</button>
-            </div>
-
-            <!-- Propositions en attente (admin) -->
-            <div id="proposals-admin-section" class="form-section" style="display: none;">
-                <h3>Propositions en attente</h3>
-                <button id="refresh-proposals" class="action-btn">Rafraîchir</button>
-                <div id="proposals-list"></div>
-            </div>
-
-            <!-- Sauvegarde et restauration -->
-            <div class="form-section">
-                <h3>Sauvegarde</h3>
-                <button id="export" class="action-btn">Exporter</button>
-                <input type="file" id="import-file" accept=".json" style="display: none;">
-                <button id="import" class="action-btn">Importer</button>
+            <div id="panel-propositions" class="sidebar-panel">
+                <div id="proposals-admin-section" class="form-section">
+                    <h3 id="proposals-panel-title">Propositions en attente</h3>
+                    <button id="refresh-proposals" class="action-btn">Rafraîchir</button>
+                    <div id="proposals-list"></div>
+                </div>
             </div>
         </div>
 

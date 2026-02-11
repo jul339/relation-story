@@ -12,23 +12,60 @@ h1 {
     margin: 10px 0;
 }
 
-#toggle-sidebar {
+#sidebar-buttons {
     position: fixed;
     top: 60px;
     left: 10px;
     z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sidebar-btn {
     padding: 10px 15px;
     background: #4CAF50;
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 18px;
+    font-size: 14px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 
-#toggle-sidebar:hover {
+.sidebar-btn:hover {
     background: #45a049;
+}
+
+.sidebar-btn.active {
+    background: #2e7d32;
+}
+
+.close-sidebar {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 20px;
+    line-height: 1;
+    background: #ddd;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.close-sidebar:hover {
+    background: #ccc;
+}
+
+.sidebar-panel {
+    display: none;
+}
+
+.sidebar-panel.active {
+    display: block;
 }
 
 #main-container {
@@ -40,8 +77,10 @@ h1 {
 
 #sidebar {
     width: 300px;
+    min-width: 300px;
     background: #f5f5f5;
-    padding: 20px;
+    padding: 20px 20px 20px 20px;
+    padding-top: 44px;
     overflow-y: auto;
     border-right: 2px solid #ccc;
     transition: transform 0.3s ease;
