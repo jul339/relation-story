@@ -51,23 +51,25 @@ const cy = cytoscape({
             }
         },
         {
-            selector: 'node[type="group"]',    // Nœuds de type groupe
+            selector: 'node[type="group"]',
             style: {
-                'label': 'data(id)',
+                'label': 'data(origine)',
                 'text-valign': 'top',
                 'text-halign': 'center',
                 'text-margin-y': -10,
-                'background-opacity': 0.2,      // Fond semi-transparent
-                'background-color': 'data(color)', // Couleur selon l'origine
+                'width': 'data(width)',
+                'height': 'data(height)',
+                'background-opacity': 0.2,
+                'background-color': 'data(color)',
                 'border-width': 2,
                 'border-color': 'data(color)',
                 'border-opacity': 0.6,
-                'shape': 'roundrectangle',      // Rectangle avec coins arrondis
+                'shape': 'roundrectangle',
                 'font-size': 12,
                 'font-weight': 'bold',
                 'color': '#333',
-                'z-index': 0,                   // En arrière-plan
-                'padding': 20                   // Espace autour des enfants
+                'z-index': 0,
+                'padding': 15
             }
         },
         {
@@ -149,36 +151,51 @@ async function loadGraph() {
             'default': '#f5f5f5'
         };
 
-        // Identifier les origines uniques et créer les groupes
-        const origines = new Set();
+        const originesList = new Set();
         data.nodes.forEach(node => {
-            if (node.origine) {
-                origines.add(node.origine);
-            }
+            const arr = node.origines || [];
+            arr.forEach(o => originesList.add(o));
         });
 
-        // Créer un nœud parent pour chaque origine
-        origines.forEach(origine => {
+        const PAD = 40;
+        function bboxForOrigin(origine) {
+            const pts = data.nodes
+                .filter(n => (n.origines || []).includes(origine))
+                .map(n => ({ x: n.x || 0, y: n.y || 0 }));
+            if (pts.length === 0) return null;
+            const minX = Math.min(...pts.map(p => p.x)) - PAD;
+            const minY = Math.min(...pts.map(p => p.y)) - PAD;
+            const maxX = Math.max(...pts.map(p => p.x)) + PAD;
+            const maxY = Math.max(...pts.map(p => p.y)) + PAD;
+            return { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, w: maxX - minX, h: maxY - minY };
+        }
+
+        originesList.forEach(origine => {
+            const box = bboxForOrigin(origine);
+            if (!box) return;
             cy.add({
                 group: 'nodes',
                 data: {
                     id: `group_${origine}`,
                     type: 'group',
-                    color: groupColors[origine] || groupColors.default
-                }
+                    origine: origine,
+                    color: groupColors[origine] || groupColors.default,
+                    width: box.w,
+                    height: box.h
+                },
+                position: { x: box.cx, y: box.cy }
             });
         });
 
-        // Ajouter les nœuds avec leurs coordonnées et assigner au groupe parent
         data.nodes.forEach(node => {
-            const parent = node.origine ? `group_${node.origine}` : undefined;
             const label = node.nom != null ? node.nom : node.id;
             cy.add({
                 group: 'nodes',
                 data: {
                     id: node.id,
                     label: label,
-                    parent: parent
+                    origines: node.origines || [],
+                    nom: node.nom
                 },
                 position: { x: node.x, y: node.y }
             });
@@ -201,8 +218,8 @@ async function loadGraph() {
         // Afficher les propositions en attente sur le graphe (transparence)
         await loadPendingOnGraph();
 
-        // Utiliser le layout preset pour respecter les coordonnées
         cy.layout({ name: 'preset' }).run();
+        loadOriginesSelect();
     } catch (error) {
         console.error("Erreur lors du chargement du graphe:", error);
     }
@@ -219,10 +236,9 @@ async function loadPendingOnGraph() {
             const data = p.data || {};
             if (p.type === "add_node" && data.nom) {
                 if (cy.getElementById(data.nom).length > 0) return;
-                const parent = data.origine && cy.getElementById(`group_${data.origine}`).length > 0 ? `group_${data.origine}` : undefined;
                 cy.add({
                     group: 'nodes',
-                    data: { id: data.nom, label: data.nom, parent },
+                    data: { id: data.nom, label: data.nom, origines: data.origines || [] },
                     position: { x: data.x != null ? data.x : 0, y: data.y != null ? data.y : 0 },
                     classes: 'pending'
                 });
@@ -310,19 +326,19 @@ async function calculateAutoPosition() {
     }
 }
 
-// Fonction pour ajouter une personne
-async function addPerson(nom, origine, x, y) {
-    // Calculer les positions automatiquement si non fournies
+// Fonction pour ajouter une personne (origines = tableau de strings)
+async function addPerson(nom, origines, x, y) {
     if (x === null || y === null || isNaN(x) || isNaN(y)) {
         const pos = await calculateAutoPosition();
         x = pos.x;
         y = pos.y;
     }
+    const list = Array.isArray(origines) ? origines : (origines ? [origines] : []);
 
     const res = await apiFetch(`${API_BASE}/person`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nom, origine: origine || null, x, y })
+        body: JSON.stringify({ nom, origines: list, x, y })
     });
 
     if (res.ok) {
@@ -334,8 +350,8 @@ async function addPerson(nom, origine, x, y) {
     }
 }
 
-// Fonction pour ajouter une liste de personnes
-async function addPersonList(noms, origine) {
+// Fonction pour ajouter une liste de personnes (origines = tableau)
+async function addPersonList(noms, origines) {
     const nomsArray = noms.split(',')
         .map(nom => nom.trim())
         .filter(nom => nom.length > 0);
@@ -397,7 +413,7 @@ async function addPersonList(noms, origine) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     nom: nomsArray[i],
-                    origine: origine || null,
+                    origines: Array.isArray(origines) ? origines : (origines ? [origines] : []),
                     x,
                     y
                 })
@@ -441,12 +457,12 @@ async function deletePerson(nom) {
     }
 }
 
-// Fonction pour mettre à jour une personne
-async function updatePerson(oldNom, nom, origine) {
+async function updatePerson(oldNom, nom, origines) {
+    const list = Array.isArray(origines) ? origines : (origines ? [origines] : []);
     const res = await apiFetch(`${API_BASE}/person`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ oldNom, nom, origine })
+        body: JSON.stringify({ oldNom, nom, origines: list })
     });
 
     if (res.ok) {
@@ -489,18 +505,18 @@ async function deleteRelation(source, target, type) {
     }
 }
 
-// Fonction pour dissoudre un groupe (retirer l'origine des membres)
-async function dissolveGroup(members) {
+async function dissolveGroup(members, groupOrigine) {
     let successCount = 0;
     let errorCount = 0;
-
     for (const member of members) {
         const nom = member.data('id');
+        const current = member.data('origines') || [];
+        const newOrigines = current.filter(o => o !== groupOrigine);
         try {
             const res = await apiFetch(`${API_BASE}/person`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ oldNom: nom, nom: nom, origine: null })
+                body: JSON.stringify({ oldNom: nom, nom: nom, origines: newOrigines })
             });
 
             if (res.ok) {
@@ -716,10 +732,29 @@ function applyProposeModeUI() {
     }
 }
 
-// Event listener pour le drag and drop des nœuds (ne pas sauver en mode proposition)
+function updateGroupBoxes() {
+    const PAD = 40;
+    const groupNodes = cy.nodes().filter(n => n.data('type') === 'group');
+    const personNodes = cy.nodes().filter(n => n.data('type') !== 'group' && !n.hasClass('pending'));
+    groupNodes.forEach(grp => {
+        const origine = grp.data('origine');
+        const members = personNodes.filter(n => (n.data('origines') || []).includes(origine));
+        if (members.length === 0) return;
+        const xs = members.map(m => m.position('x'));
+        const ys = members.map(m => m.position('y'));
+        const minX = Math.min(...xs) - PAD, maxX = Math.max(...xs) + PAD;
+        const minY = Math.min(...ys) - PAD, maxY = Math.max(...ys) + PAD;
+        grp.position({ x: (minX + maxX) / 2, y: (minY + maxY) / 2 });
+        grp.data('width', maxX - minX);
+        grp.data('height', maxY - minY);
+    });
+}
+
 cy.on('dragfree', 'node', function (evt) {
-    if (isProposeMode) return;
     const node = evt.target;
+    if (node.data('type') === 'group') return;
+    updateGroupBoxes();
+    if (isProposeMode) return;
     const position = node.position();
     const nom = node.data('id');
     saveNodePosition(nom, position.x, position.y);
@@ -735,16 +770,17 @@ cy.on('click', function (evt) {
         alert("Le nom doit être au format Prénom NOM (ex. Jean HEUDE-LEGRANG).");
         return;
     }
-    const origine = prompt("Origine (optionnel, appuyez sur Entrée pour ignorer) :");
+    const originesStr = prompt("Origines (séparées par des virgules, optionnel) :");
+    const origines = originesStr ? originesStr.split(',').map(s => s.trim()).filter(Boolean) : [];
     if (isProposeMode) {
         submitProposal("add_node", {
             nom: nom.trim(),
-            origine: origine ? origine.trim() : null,
+            origines,
             x: Math.round(position.x),
             y: Math.round(position.y)
         });
     } else {
-        addPerson(nom.trim(), origine ? origine.trim() : null, Math.round(position.x), Math.round(position.y));
+        addPerson(nom.trim(), origines, Math.round(position.x), Math.round(position.y));
     }
 });
 
@@ -779,11 +815,12 @@ cy.on('dbltap', 'node[!type]', function (evt) {
             alert("Le nom doit être au format Prénom NOM (ex. Jean HEUDE-LEGRANG).");
             return;
         }
-        const newOrigine = prompt(`Nouvelle origine (laissez vide pour aucune) :`);
+        const newOriginesStr = prompt(`Nouvelles origines (séparées par des virgules, vide pour aucune) :`);
+        const newOrigines = newOriginesStr ? newOriginesStr.split(',').map(s => s.trim()).filter(Boolean) : [];
         if (isProposeMode) {
-            submitProposal("modify_node", { nom, newNom: newNom.trim(), newOrigine: newOrigine ? newOrigine.trim() : null });
+            submitProposal("modify_node", { nom, newNom: newNom.trim(), newOrigines });
         } else {
-            updatePerson(nom, newNom.trim(), newOrigine ? newOrigine.trim() : null);
+            updatePerson(nom, newNom.trim(), newOrigines);
         }
     }
 });
@@ -826,28 +863,25 @@ cy.on('dbltap', 'edge', function (evt) {
     }
 });
 
-// Event listener pour les groupes en double-cliquant dessus
 cy.on('dbltap', 'node[type="group"]', function (evt) {
     if (isProposeMode) {
         alert("Seul l'administrateur peut dissoudre un groupe.");
         return;
     }
     const group = evt.target;
-    const groupName = group.data('id').replace('group_', '');
-    const members = cy.nodes(`[parent="${group.data('id')}"]`);
+    const groupOrigine = group.data('origine');
+    const members = cy.nodes().filter(n => n.data('type') !== 'group' && (n.data('origines') || []).includes(groupOrigine));
     const memberNames = members.map(n => n.data('id')).join(', ');
     const action = prompt(
-        `Groupe: ${groupName}\n` +
+        `Groupe: ${groupOrigine}\n` +
         `Membres (${members.length}): ${memberNames}\n\n` +
-        `Tapez:\n` +
-        `- "d" ou "dissoudre" pour retirer l'origine de tous les membres\n` +
-        `- Entrée pour annuler`
+        `Tapez "d" ou "dissoudre" pour retirer cette origine de tous les membres, ou Entrée pour annuler`
     );
     if (!action) return;
     const actionLower = action.toLowerCase().trim();
     if (actionLower === 'd' || actionLower === 'dissoudre') {
-        if (confirm(`Voulez-vous vraiment retirer l'origine "${groupName}" de tous les membres ?`)) {
-            dissolveGroup(members);
+        if (confirm(`Voulez-vous vraiment retirer l'origine "${groupOrigine}" de tous les membres ?`)) {
+            dissolveGroup(members, groupOrigine);
         }
     }
 });
@@ -931,11 +965,53 @@ async function initAuth() {
 }
 
 // Initialisation après chargement du DOM
+function getSelectedOrigines() {
+    const sel = document.getElementById('origines');
+    if (!sel) return [];
+    return Array.from(sel.selectedOptions).map(o => o.value);
+}
+
+async function loadOriginesSelect() {
+    const sel = document.getElementById('origines');
+    if (!sel) return;
+    try {
+        const res = await apiFetch(`${API_BASE}/origines`);
+        const data = await res.json();
+        const list = data.origines || [];
+        const current = Array.from(sel.options).map(o => o.value);
+        list.forEach(o => {
+            if (!current.includes(o)) {
+                const opt = document.createElement('option');
+                opt.value = o;
+                opt.textContent = o;
+                sel.appendChild(opt);
+            }
+        });
+    } catch (_) {}
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     await initAuth();
     applyProposeModeUI();
+    await loadOriginesSelect();
 
-    // Gestionnaire du formulaire personne
+    document.getElementById('origine-add').addEventListener('click', () => {
+        const input = document.getElementById('origine-new');
+        const val = input.value.trim();
+        if (!val) return;
+        const sel = document.getElementById('origines');
+        if (Array.from(sel.options).some(o => o.value === val)) {
+            sel.querySelector(`option[value="${CSS.escape(val)}"]`).selected = true;
+        } else {
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = val;
+            opt.selected = true;
+            sel.appendChild(opt);
+        }
+        input.value = '';
+    });
+
     document.getElementById('form-person').addEventListener('submit', async (e) => {
         e.preventDefault();
         const nom = document.getElementById('nom').value.trim();
@@ -943,7 +1019,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert("Le nom doit être au format Prénom NOM (ex. Jean HEUDE-LEGRANG).");
             return;
         }
-        const origine = document.getElementById('origine').value.trim() || null;
+        const origines = getSelectedOrigines();
         const xVal = document.getElementById('x').value;
         const yVal = document.getElementById('y').value;
         let x = xVal ? parseInt(xVal) : null;
@@ -954,12 +1030,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 x = pos.x;
                 y = pos.y;
             }
-            submitProposal("add_node", { nom, origine, x, y });
+            submitProposal("add_node", { nom, origines, x, y });
             e.target.reset();
             document.getElementById('nom-similar-hint').style.display = 'none';
             return;
         }
-        addPerson(nom, origine, x, y);
+        addPerson(nom, origines, x, y);
         e.target.reset();
         document.getElementById('nom-similar-hint').style.display = 'none';
     });
@@ -990,11 +1066,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 300);
     });
 
-    // Gestionnaire du formulaire liste
     document.getElementById('form-list').addEventListener('submit', async (e) => {
         e.preventDefault();
         const noms = document.getElementById('list-noms').value;
-        const origine = document.getElementById('list-origine').value.trim() || null;
+        const origines = getSelectedOrigines();
         const nomsArray = noms.split(',').map(n => n.trim()).filter(n => n.length > 0);
         if (nomsArray.length === 0) {
             alert("Aucun nom valide dans la liste !");
@@ -1036,7 +1111,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                             type: "add_node",
-                            data: { nom: nomsArray[i], origine, x, y }
+                            data: { nom: nomsArray[i], origines, x, y }
                         })
                     });
                     if (res.ok) ok++;
@@ -1048,7 +1123,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadGraph();
             return;
         }
-        addPersonList(noms, origine);
+        addPersonList(noms, origines);
         document.getElementById('list-noms').value = '';
     });
 

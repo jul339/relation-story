@@ -35,7 +35,7 @@ describe("Person Endpoints", () => {
                 .post("/person")
                 .send({
                     nom: "Jean DUPONT",
-                    origine: "Famille",
+                    origines: ["Famille"],
                     x: 100,
                     y: 200
                 });
@@ -117,14 +117,14 @@ describe("Person Endpoints", () => {
                 .send({
                     oldNom: "Jean DUPONT",
                     nom: "Jean MARTIN",
-                    origine: "Travail"
+                    origines: ["Travail"]
                 });
 
             expect(response.status).toBe(200);
 
             const jean = await request(app).get("/person/Jean%20MARTIN");
             expect(jean.body.nom).toBe("Jean MARTIN");
-            expect(jean.body.origine).toBe("Travail");
+            expect(jean.body.origines).toEqual(["Travail"]);
 
             const graph = await request(app).get("/graph");
             expect(graph.body.nodes).toHaveLength(1);
@@ -138,7 +138,7 @@ describe("Person Endpoints", () => {
                 .send({
                     oldNom: "Jean DUPONT",
                     nom: "jean",
-                    origine: "Travail"
+                    origines: ["Travail"]
                 });
 
             expect(response.status).toBe(400);

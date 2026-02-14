@@ -1,5 +1,2 @@
-pour faire une proposition :
-on me demande d entrer un nom alors que je suis deja connecter
-    fusionner cette partir avec la nouvelle authentification
-
-Deployer et tester
+faire une table relations_events comme node events
+faire des propositions d ajout de groupes et de types de liens

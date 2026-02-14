@@ -22,7 +22,7 @@ describe("Proposals Endpoints", () => {
                     type: "add_node",
                     data: {
                         nom: "Test PERSON",
-                        origine: "Test",
+                        origines: ["Test"],
                         x: 100,
                         y: 200
                     }
@@ -63,7 +63,7 @@ describe("Proposals Endpoints", () => {
                     data: {
                         nom: "Jean DUPONT",
                         newNom: "Jean MARTIN",
-                        newOrigine: "Sport"
+                        newOrigines: ["Sport"]
                     }
                 });
 
@@ -177,7 +177,7 @@ describe("Proposals Endpoints", () => {
         test("should approve add_node proposal", async () => {
             const proposal = await createTestProposal("User1", "add_node", {
                 nom: "New PERSON",
-                origine: "Test",
+                origines: ["Test"],
                 x: 100,
                 y: 200
             });
@@ -251,7 +251,7 @@ describe("Proposals Endpoints", () => {
         test("should return 400 if already approved", async () => {
             const proposal = await createTestProposal("User1", "add_node", {
                 nom: "Test PERSON",
-                origine: "Test",
+                origines: ["Test"],
                 x: 0,
                 y: 0
             });

@@ -20,7 +20,7 @@ describe("GET /graph visibility", () => {
         expect(res.body.nodes).toHaveLength(2);
         const nodeWithNom = res.body.nodes.find((n) => n.nom === "Jean DUPONT");
         expect(nodeWithNom).toBeDefined();
-        expect(nodeWithNom.origine).toBe("Famille");
+        expect(nodeWithNom.origines).toEqual(["Famille"]);
         expect(nodeWithNom.nodeId).toBeDefined();
         expect(res.body.edges).toHaveLength(1);
         expect(res.body.edges[0].type).toBe("AMIS");
@@ -44,7 +44,7 @@ describe("GET /graph visibility", () => {
             expect(n.x).toBeDefined();
             expect(n.y).toBeDefined();
             expect(n.nom).toBeUndefined();
-            expect(n.origine).toBeUndefined();
+            expect(n.origines).toBeUndefined();
         });
         expect(res.body.edges).toHaveLength(1);
         expect(res.body.edges[0].type).toBe("CONNECTION");

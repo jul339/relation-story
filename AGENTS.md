@@ -13,7 +13,7 @@ Application web permettant de créer et visualiser un graphe de relations entre 
 - Port: `process.env.PORT` (défaut 3000)
 - CORS: `process.env.CORS_ORIGIN` (défaut `*` ; si `*` et requête avec `Origin`, la réponse renvoie cette origine pour permettre `credentials: 'include'`).
 - Connexion Neo4j via `neo4j.js` ; module **ids.js** : `generateUniqueNodeId`, `generateUniqueEdgeId`, `migrateNodeIdsAndEdgeIds` (IDs 6 chiffres pour Person et relations).
-- **Base SQL** : `backend/db.js` (PostgreSQL via `DATABASE_URL`, ex. Supabase). Table `users` (email, password_hash, person_node_id, visibility_level, created_at) ; table `session` (connect-pg-simple). `initDb()` au démarrage.
+- **Base SQL** : `backend/db.js` (PostgreSQL via `DATABASE_URL`, ex. Supabase). Tables : `users` (email, password_hash, person_node_id, visibility_level, created_at) ; `node_events` (audit des ajouts/modifications de nœuds : node_id, action, created_by, created_at, created_with_visibility_level) ; `session` (connect-pg-simple). `initDb()` au démarrage.
 - Session : `express-session` + `connect-pg-simple` si `DATABASE_URL`, sinon mémoire. Cookie httpOnly, 7 jours. `isAdmin(req)` = hostname localhost ou 127.0.0.1 ; `requireAdmin` = 403 si non admin ; `requireAuth` = 401 si non connecté.
 - Écritures directes (POST/PATCH/DELETE person, POST/DELETE relation, POST /import) protégées par **requireAdmin** : 403 en dehors de localhost.
 - Module snapshots : `backend/snapshots.js` (création/liste/restauration de versions JSON).
@@ -47,7 +47,7 @@ Application web permettant de créer et visualiser un graphe de relations entre 
 
 **Dossier**: `backend/__tests__/`
 
-- `setup.js` : clearDatabase, createTestPerson (avec nodeId), createTestRelation (avec edgeId), createTestProposal(authorName, type, data, authorEmail?), etc.
+- `setup.js` : clearDatabase, createTestPerson(nom, **origines** (array), x, y), createTestRelation, createTestProposal(authorName, type, data, authorEmail?), etc.
 - `person.test.js`, `relation.test.js`, `proposals.test.js`, `snapshots.test.js`, `export-import.test.js`, **auth.test.js**, **graph-visibility.test.js**, **available-for-signup.test.js**
 - Commande : `npm test` (Jest + supertest, Neo4j requis). Tests auth complets (register → login → me → logout) nécessitent `DATABASE_URL`.
 - **Base pour les tests** : dev et tests utilisent la même Neo4j (docker-compose, **7687**). Défaut `bolt://127.0.0.1:7687` pour limiter les ECONNRESET sous WSL. Voir `backend/__tests__/README.md`.
@@ -58,14 +58,15 @@ Application web permettant de créer et visualiser un graphe de relations entre 
 
 - **Format du nom** : obligatoire **Prénom NOM** (regex `^[A-Z][a-z]* [A-Z][A-Z-]*$`). Exemple : `Jean HEUDE-LEGRANG`. Validé côté backend (POST /person, PATCH /person, approve add_node/modify_node) et frontend.
 - **nodeId** : identifiant unique 6 chiffres (string), généré à la création ; utilisé pour lier un compte utilisateur (table `users`) et pour la visibilité du graphe (réponses filtrées exposent id = nodeId).
+- **origines** : liste ordonnée de strings (ex. `["Famille", "Travail"]`). Un nœud peut appartenir à plusieurs groupes visuels.
 
 ```cypher
 (:Person {
-  nom: String,      // UNIQUE, REQUIRED - format "Prénom NOM" (ex. Jean DUPONT)
-  origine: String,  // OPTIONAL - origine de la personne
-  x: Number,        // REQUIRED - position X dans le graphe
-  y: Number,        // REQUIRED - position Y dans le graphe
-  nodeId: String    // REQUIRED - 6 chiffres, unique
+  nom: String,        // UNIQUE, REQUIRED - format "Prénom NOM" (ex. Jean DUPONT)
+  origines: [String], // OPTIONAL - liste d'origines (plusieurs groupes possibles)
+  x: Number,          // REQUIRED - position X dans le graphe
+  y: Number,          // REQUIRED - position Y dans le graphe
+  nodeId: String      // REQUIRED - 6 chiffres, unique
 })
 ```
 
@@ -104,19 +105,30 @@ Séparé des Person (pas de relations entre eux). Stocke les propositions en att
 - **visibility_level** (integer, défaut 1) – niveau de visibilité du graphe (1 = noms des voisins, 2 = + types des relations avec soi, 3 = + noms des voisins de voisins)
 - **created_at**
 
+### Table `node_events` (PostgreSQL)
+
+Audit des ajouts et modifications de nœuds (une ligne par événement). Remplie si `DATABASE_URL` est défini.
+
+- **id** (SERIAL) – identifiant de l’événement
+- **node_id** (VARCHAR(6)) – nodeId du nœud Person concerné
+- **action** – `'add'` ou `'modify'`
+- **created_by** – email de l’utilisateur (session) ou null
+- **created_at** (TIMESTAMPTZ)
+- **created_with_visibility_level** – niveau de visibilité de l’utilisateur au moment de l’action
+
 ## 🔌 API REST
 
 ### GET /graph
 
 Récupère le graphe selon le contexte (admin / anonyme / connecté).
 
-- **Admin** (hostname localhost ou 127.0.0.1) : réponse complète (id = nom, nodeId, nom, origine, x, y ; edges avec source/target = nom, type, edgeId).
-- **Non connecté** : nœuds avec `id` = nodeId (6 chiffres), x, y (pas de nom ni origine) ; arêtes avec source/target = nodeId, `type: "CONNECTION"`, edgeId.
-- **Connecté** : selon `visibility_level` de la session (1 = noms des voisins, 2 = + types des relations avec soi, 3 = + noms des voisins de voisins). Réponse avec id = nodeId ; nom/origine et type d'arête exposés selon le niveau.
+- **Admin** (hostname localhost ou 127.0.0.1) : réponse complète (id = nom, nodeId, nom, **origines** (array), x, y ; edges avec source/target = nom, type, edgeId).
+- **Non connecté** : nœuds avec `id` = nodeId (6 chiffres), x, y (pas de nom ni origines) ; arêtes avec source/target = nodeId, `type: "CONNECTION"`, edgeId.
+- **Connecté** : selon `visibility_level` de la session (1 = noms des voisins, 2 = + types des relations avec soi, 3 = + noms des voisins de voisins). Réponse avec id = nodeId ; nom/origines et type d'arête exposés selon le niveau.
 
 ```json
 // Admin
-{ "nodes": [{ "id": "nom", "nodeId": "123456", "nom": "Jean DUPONT", "origine": "...", "x": 0, "y": 0 }], "edges": [{ "source": "Jean DUPONT", "target": "Marie MARTIN", "type": "AMIS", "edgeId": "654321" }] }
+{ "nodes": [{ "id": "nom", "nodeId": "123456", "nom": "Jean DUPONT", "origines": ["Famille", "Travail"], "x": 0, "y": 0 }], "edges": [{ "source": "Jean DUPONT", "target": "Marie MARTIN", "type": "AMIS", "edgeId": "654321" }] }
 
 // Anonyme / filtré
 { "nodes": [{ "id": "123456", "x": 0, "y": 0 }], "edges": [{ "source": "123456", "target": "654321", "type": "CONNECTION", "edgeId": "111222" }] }
@@ -141,6 +153,14 @@ Response: { "available": [{ "nodeId": "123456", "nom": "Jean DUPONT" }, ...] }
 ```
 503 si `DATABASE_URL` absent.
 
+### GET /origines
+
+Liste des origines distinctes présentes sur les nœuds (pour le multi-select du formulaire).
+
+```json
+Response: { "origines": ["Famille", "Travail", "Sport", ...] }
+```
+
 ### Auth (session, credentials)
 
 - **POST /auth/register** – Inscription. Body: `{ email, password, person_node_id }` (person_node_id = 6 chiffres). Vérifie que le nœud existe en Neo4j et n'est pas déjà pris ; hash bcrypt ; insertion dans `users`. 400 si nœud inexistant ou déjà pris, 503 si pas de DB.
@@ -150,10 +170,10 @@ Response: { "available": [{ "nodeId": "123456", "nom": "Jean DUPONT" }, ...] }
 
 ### POST /person
 
-Crée une nouvelle personne. Le nom doit respecter le format Prénom NOM. **Réservé à l'admin** (requireAdmin) : 403 en dehors de localhost.
+Crée une nouvelle personne. Le nom doit respecter le format Prénom NOM. **Réservé à l'admin** (requireAdmin) : 403 en dehors de localhost. Enregistre un événement dans `node_events` (action `add`) si `DATABASE_URL` est défini.
 
 ```json
-Body: { "nom": "Jean DUPONT", "origine": "Travail", "x": 100, "y": 200 }
+Body: { "nom": "Jean DUPONT", "origines": ["Travail", "Famille"], "x": 100, "y": 200 }
 Response: 201 Created
 Erreur: 400 si nom manquant, format invalide (Prénom NOM) ou coordonnées manquantes ; 403 si non admin
 ```
@@ -169,7 +189,7 @@ Response: 200 OK
 
 ### PATCH /person/coordinates
 
-Met à jour les coordonnées d'une personne. **Réservé à l'admin** : 403 en dehors de localhost.
+Met à jour les coordonnées d'une personne. **Réservé à l'admin** : 403 en dehors de localhost. Enregistre un événement `modify` dans `node_events` si `DATABASE_URL` est défini.
 
 ```json
 Body: { "nom": "Jean DUPONT", "x": 150, "y": 250 }
@@ -178,10 +198,10 @@ Response: 200 OK
 
 ### PATCH /person
 
-Met à jour le nom et/ou l'origine d'une personne. Le nouveau nom doit respecter le format Prénom NOM. **Réservé à l'admin** : 403 en dehors de localhost.
+Met à jour le nom et/ou les origines d'une personne. Le nouveau nom doit respecter le format Prénom NOM. **Réservé à l'admin** : 403 en dehors de localhost. Enregistre un événement `modify` dans `node_events` si `DATABASE_URL` est défini.
 
 ```json
-Body: { "oldNom": "Jean DUPONT", "nom": "Jean MARTIN", "origine": "Travail" }
+Body: { "oldNom": "Jean DUPONT", "nom": "Jean MARTIN", "origines": ["Travail", "Sport"] }
 Response: 200 OK
 Erreur: 400 si nouveau nom au mauvais format
 ```
@@ -235,11 +255,11 @@ Response: { "message": "Import réussi", "nodesCount": 5, "edgesCount": 3 }
 
 ### Propositions (collaboration)
 
-- **POST /proposals** – Soumettre une proposition (**utilisateur connecté uniquement**, 401 sinon). Body: `{ type, data }`. L'auteur est déduit de la session (email, person_node_id → authorEmail, authorNodeId). Types: add_node, add_relation, modify_node, delete_node, delete_relation.
+- **POST /proposals** – Soumettre une proposition (**utilisateur connecté uniquement**, 401 sinon). Body: `{ type, data }`. L'auteur est déduit de la session (email, person_node_id → authorEmail, authorNodeId). Types: add_node (data: nom, **origines**, x, y), add_relation (data: source, target, type), modify_node (data: nom, newNom?, **newOrigines**?), delete_node, delete_relation.
 - **GET /proposals/stats** – Admin : stats globales. Connecté (non admin) : stats uniquement pour les propositions de l'utilisateur (authorEmail = session.user.email). Non connecté : `{ pending: 0, approved: 0, rejected: 0, total: 0 }`.
 - **GET /proposals** – Admin : toutes les propositions. Connecté : uniquement celles dont authorEmail = session.user.email. Non connecté : 401.
 - **GET /proposals/:id** – Détails d'une proposition. Admin : accès à toute. Connecté : uniquement si authorEmail = session.user.email, sinon 403.
-- **POST /proposals/:id/approve** – Approuver (applique le changement, crée un snapshot). Body: `{ reviewedBy, comment? }`. Pour add_node et modify_node, le nom doit respecter le format Prénom NOM, sinon 400.
+- **POST /proposals/:id/approve** – Approuver (applique le changement, crée un snapshot, enregistre un événement dans `node_events` pour add_node/modify_node si `DATABASE_URL` défini). Body: `{ reviewedBy, comment? }`. Pour add_node et modify_node, le nom doit respecter le format Prénom NOM, sinon 400.
 - **POST /proposals/:id/reject** – Rejeter. Body: `{ reviewedBy, comment }`.
 
 ### Snapshots (versions)
@@ -292,18 +312,22 @@ Response: { "message": "Import réussi", "nodesCount": 5, "edgesCount": 3 }
 3. **Sidebar toggleable** (bouton "≡ Menu" en haut à gauche)
 4. **Mode collaborateur** (`?mode=propose` ou hors localhost) : bloc "Proposer des modifications" (titre + hint + stats "X proposition(s) en attente" si connecté, sinon "Connectez-vous pour proposer" + lien Connexion). **Connexion obligatoire** pour soumettre une proposition. Masqué : Tout supprimer, Importer. Les formulaires (personne, liste, relation) envoient des propositions (POST /proposals) au lieu des endpoints directs ; les écritures directes (POST /person, etc.) sont refusées (403) par le backend en dehors de localhost.
 5. **Propositions en attente** : section toujours visible avec liste et bouton Rafraîchir. En mode admin : boutons Approuver/Rejeter sur chaque proposition. En mode propose : liste en lecture seule (filtrée par auteur côté API).
-4. **Formulaire Personne** : consigne « Nom en majuscule OBLIGATOIRE, exemple : Jean HEUDE-LEGRANG » ; champ nom (format Prénom NOM, validé par regex) ; sous le champ, affichage des **3 noms les plus proches** existants (GET /persons/similar) pour éviter les doublons ; origine (optionnel), x/y (auto si vide).
-5. **Formulaire Liste** : noms CSV au format Prénom NOM, origine optionnelle (positions auto)
+4. **Formulaire Personne** : consigne « Nom en majuscule OBLIGATOIRE, exemple : Jean HEUDE-LEGRANG » ; champ nom (format Prénom NOM, validé par regex) ; sous le champ, affichage des **3 noms les plus proches** existants (GET /persons/similar) ; **origines** : multi-select (GET /origines pour les options) + champ « Nouvelle origine » + bouton Ajouter ; x/y (auto si vide).
+5. **Formulaire Liste** : noms CSV au format Prénom NOM ; mêmes origines que la sélection du multi-select ci-dessus (positions auto)
 6. **Formulaire Relation** : source et cible via **sélection obligatoire** : l’utilisateur tape un nom ou le début du nom, une liste de noms existants s’affiche (GET /persons/similar?q=…&limit=8) ; il doit **cliquer** sur un nom pour valider la source et un pour la cible (la saisie libre n’est pas acceptée à l’envoi). Type : select FAMILLE / AMIS / AMOUR.
 7. **Contrôles du graphe**: Zoom +, Zoom -, Ajuster
 8. **Actions**: Rafraîchir, Tout supprimer
 9. **Sauvegarde**: Exporter, Importer
 
+### Groupes visuels (origines)
+
+Un **rectangle par origine** ; les rectangles peuvent **se chevaucher**. Un nœud peut avoir plusieurs origines (plusieurs groupes). Les boîtes sont calculées à partir des positions des nœuds ayant chaque origine ; elles sont mises à jour après drag d’un nœud. Double-clic sur un groupe : « Dissoudre » retire cette origine pour tous les membres (sans toucher aux autres origines).
+
 ### Propositions en attente sur le graphe
 
 Les propositions en attente sont affichées sur le graphe avec une transparence pour les distinguer des éléments validés. Au chargement du graphe, `loadPendingOnGraph()` récupère les propositions (GET /proposals?status=pending) et :
 
-- **add_node** : nœuds ajoutés avec la classe Cytoscape `pending` (opacity 0,5)
+- **add_node** : nœuds ajoutés avec la classe Cytoscape `pending` (opacity 0,5), data.origines (array)
 - **add_relation** : arêtes ajoutées avec la classe `pending` (opacity 0,45, trait en pointillés)
 - **modify_node** : nœud existant reçoit la classe `pending-modify` (opacity 0,6)
 - **delete_node** : nœud existant reçoit la classe `pending-delete` (opacity 0,4)
@@ -311,8 +335,8 @@ Les propositions en attente sont affichées sur le graphe avec une transparence 
 
 ### Interactions Directes
 
-- **Clic sur fond** → Crée un nœud (ou envoie une proposition en mode `?mode=propose`)
-- **Double-clic nœud** → Menu modifier/supprimer (ou proposition en mode propose)
+- **Clic sur fond** → Crée un nœud (prompt nom + origines séparées par des virgules) ou envoie une proposition en mode propose
+- **Double-clic nœud** → Menu modifier (nom + origines, virgules) / supprimer (ou proposition en mode propose)
 - **Double-clic relation** → Menu changer type/supprimer (ou proposition en mode propose)
 - **Double-clic groupe** → Info/Dissoudre (en mode propose : message "Seul l'administrateur peut dissoudre")
 - **Drag nœud** → Déplace avec auto-save (en mode propose : pas de sauvegarde, drag visuel seulement)
@@ -378,11 +402,12 @@ Accès:
 - **Relations** : source et cible doivent correspondre à des personnes existantes ; validation backend (POST /relation, approve add_relation) → 400 si personne non trouvée. Frontend : message d’erreur API affiché ; formulaire relation impose de choisir dans la liste (clic).
 - **Modèle simplifié** : Anciennement nom+prénom, maintenant nom unique au format Prénom NOM
 - **Coordonnées auto**: Calcul intelligent si non spécifiées
-- **Origine optionnelle**: Peut être null/undefined
-- **Ajout en masse**: Liste CSV avec positions auto en cercle
-- **Création par clic**: Clic sur fond → nouveau nœud
-- **Modification par double-clic**: Nœuds, relations, groupes
-- **Groupes visuels**: Rectangles arrondis par origine
+- **Origines (liste)**: Chaque nœud a `origines` (array de strings) ; multi-select dans le formulaire ; GET /origines pour la liste des options.
+- **Ajout en masse**: Liste CSV avec positions auto en cercle (mêmes origines que la sélection)
+- **Création par clic**: Clic sur fond → nouveau nœud (prompt nom + origines)
+- **Modification par double-clic**: Nœuds (nom + origines), relations, groupes
+- **Groupes visuels**: Un rectangle par origine, pouvant se chevaucher ; un nœud peut être dans plusieurs rectangles
+- **Audit nœuds**: Table PostgreSQL `node_events` (une ligne par add/modify) : node_id, action, created_by, created_at, created_with_visibility_level
 - **Drag & drop**: Sauvegarde auto via endpoint PATCH
 - **Export/Import**: Système complet de backup/restore
 - **Contrôles de zoom**: Boutons +/-, Ajuster, support trackpad et molette

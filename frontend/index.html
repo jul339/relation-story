@@ -35,7 +35,12 @@
                         <p class="nom-consigne">Nom en majuscule OBLIGATOIRE, exemple : Jean HEUDE-LEGRANG</p>
                         <input type="text" id="nom" placeholder="Prénom NOM" required>
                         <p id="nom-similar-hint" class="nom-similar-hint" style="display: none;"></p>
-                        <input type="text" id="origine" placeholder="Origine (optionnel)">
+                        <label for="origines">Origines (optionnel, Ctrl+Clic pour plusieurs)</label>
+                        <select id="origines" multiple size="4"></select>
+                        <div style="margin-top:4px;">
+                            <input type="text" id="origine-new" placeholder="Nouvelle origine">
+                            <button type="button" id="origine-add">Ajouter</button>
+                        </div>
                         <input type="number" id="x" placeholder="Position X (auto si vide)">
                         <input type="number" id="y" placeholder="Position Y (auto si vide)">
                         <button type="submit">Ajouter</button>
@@ -46,7 +51,7 @@
                     <form id="form-list">
                         <textarea id="list-noms" placeholder="Noms séparés par des virgules&#10;Ex: Jean, Marie, Paul"
                             rows="3" required></textarea>
-                        <input type="text" id="list-origine" placeholder="Origine (optionnel)">
+                        <p style="margin:4px 0 0 0;">Mêmes origines (optionnel) : <span id="list-origines-hint">sélection ci-dessus</span></p>
                         <button type="submit">Ajouter liste</button>
                         <small style="color: #666;">Les positions sont calculées automatiquement</small>
                     </form>

@@ -28,20 +28,21 @@ export async function clearDatabase() {
     await runQuery(`MATCH (n) DETACH DELETE n`);
 }
 
-// Helper pour créer une personne de test
-export async function createTestPerson(nom, origine = null, x = 0, y = 0) {
+// Helper pour créer une personne de test (origines = tableau de strings)
+export async function createTestPerson(nom, origines = [], x = 0, y = 0) {
     const nodeId = await generateUniqueNodeId();
+    const list = Array.isArray(origines) ? origines : (origines ? [origines] : []);
     const query = `
         CREATE (p:Person {
             nom: $nom,
-            origine: $origine,
+            origines: $origines,
             x: $x,
             y: $y,
             nodeId: $nodeId
         })
         RETURN p
     `;
-    const records = await runQuery(query, { nom, origine, x, y, nodeId });
+    const records = await runQuery(query, { nom, origines: list, x, y, nodeId });
     return records[0].get("p").properties;
 }
 

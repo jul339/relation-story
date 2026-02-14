@@ -78,6 +78,21 @@ function requireAdmin(req, res, next) {
     next();
 }
 
+async function recordNodeEvent(nodeId, action, req) {
+    if (!process.env.DATABASE_URL || !nodeId) return;
+    const user = req.session?.user;
+    const createdBy = user?.email ?? null;
+    const level = user?.visibility_level ?? null;
+    try {
+        await runSql(
+            "INSERT INTO node_events (node_id, action, created_by, created_at, created_with_visibility_level) VALUES ($1, $2, $3, NOW(), $4)",
+            [String(nodeId), action, createdBy, level]
+        );
+    } catch (e) {
+        console.warn("node_events insert failed:", e.message);
+    }
+}
+
 /* ---------- AUTH ---------- */
 app.post("/auth/register", async (req, res) => {
     const { email, password, person_node_id } = req.body;
@@ -202,13 +217,15 @@ app.get("/graph", async (req, res) => {
 
         const nodeList = Object.values(nodesByNom);
 
+        const toOrigines = (n) => (Array.isArray(n.origines) ? n.origines : []);
+
         if (isAdmin(req)) {
             return res.json({
                 nodes: nodeList.map((n) => ({
                     id: n.nom,
                     nodeId: n.nodeId,
                     nom: n.nom,
-                    origine: n.origine,
+                    origines: toOrigines(n),
                     x: n.x,
                     y: n.y
                 })),
@@ -293,7 +310,8 @@ app.get("/graph", async (req, res) => {
                     const out = { id: n.nodeId, x: n.x, y: n.y };
                     if (showNom) {
                         out.nom = n.nom;
-                        if (n.origine != null) out.origine = n.origine;
+                        const orig = toOrigines(n);
+                        if (orig.length > 0) out.origines = orig;
                     }
                     return out;
                 }),
@@ -384,6 +402,24 @@ app.get("/persons/available-for-signup", async (req, res) => {
     }
 });
 
+/* ---------- GET ORIGINES (liste pour multi-select) ---------- */
+app.get("/origines", async (req, res) => {
+    try {
+        const records = await runQuery(
+            "MATCH (p:Person) WHERE p.origines IS NOT NULL AND size(p.origines) > 0 RETURN p.origines AS origines"
+        );
+        const set = new Set();
+        records.forEach((r) => {
+            const list = r.get("origines");
+            if (Array.isArray(list)) list.forEach((o) => set.add(o));
+        });
+        res.json({ origines: [...set].sort() });
+    } catch (error) {
+        console.error("GET /origines error:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 /* ---------- GET PERSON BY NOM ---------- */
 app.get("/person/:nom", async (req, res) => {
     const { nom } = req.params;
@@ -407,7 +443,8 @@ app.get("/person/:nom", async (req, res) => {
 
 /* ---------- ADD PERSON ---------- */
 app.post("/person", requireAdmin, async (req, res) => {
-    const { nom, origine, x, y } = req.body;
+    const { nom, origines, x, y } = req.body;
+    const originesList = Array.isArray(origines) ? origines.filter(Boolean) : [];
 
     if (!nom) {
         return res.status(400).json({
@@ -429,13 +466,14 @@ app.post("/person", requireAdmin, async (req, res) => {
     const query = `
     CREATE (:Person {
       nom: $nom,
-      origine: $origine,
+      origines: $origines,
       x: $x,
       y: $y,
       nodeId: $nodeId
     })
   `;
-    await runQuery(query, { nom, origine, x, y, nodeId });
+    await runQuery(query, { nom, origines: originesList, x, y, nodeId });
+    await recordNodeEvent(nodeId, "add", req);
     res.sendStatus(201);
 });
 
@@ -443,18 +481,24 @@ app.post("/person", requireAdmin, async (req, res) => {
 app.patch("/person/coordinates", requireAdmin, async (req, res) => {
     const { nom, x, y } = req.body;
 
-    const query = `
-    MATCH (p:Person {nom:$nom})
-    SET p.x = $x, p.y = $y
-  `;
+    const matchResult = await runQuery(
+        "MATCH (p:Person {nom: $nom}) RETURN p.nodeId AS nodeId",
+        { nom }
+    );
+    if (matchResult.length === 0) return res.status(404).json({ error: "Personne non trouvée" });
+    const nodeId = matchResult[0].get("nodeId");
 
-    await runQuery(query, { nom, x, y });
+    await runQuery(
+        "MATCH (p:Person {nom:$nom}) SET p.x = $x, p.y = $y",
+        { nom, x, y }
+    );
+    await recordNodeEvent(nodeId, "modify", req);
     res.sendStatus(200);
 });
 
 /* ---------- UPDATE PERSON ---------- */
 app.patch("/person", requireAdmin, async (req, res) => {
-    const { oldNom, nom, origine } = req.body;
+    const { oldNom, nom, origines } = req.body;
 
     if (!oldNom) {
         return res.status(400).json({ error: "oldNom est requis" });
@@ -465,13 +509,20 @@ app.patch("/person", requireAdmin, async (req, res) => {
             error: "Le nom doit être au format Prénom NOM (ex. Jean HEUDE-LEGRANG)"
         });
     }
+    const originesList = Array.isArray(origines) ? origines.filter(Boolean) : [];
 
-    const query = `
-    MATCH (p:Person {nom:$oldNom})
-    SET p.nom = $nom, p.origine = $origine
-  `;
+    const matchResult = await runQuery(
+        "MATCH (p:Person {nom: $oldNom}) RETURN p.nodeId AS nodeId",
+        { oldNom }
+    );
+    if (matchResult.length === 0) return res.status(404).json({ error: "Personne non trouvée" });
+    const nodeId = matchResult[0].get("nodeId");
 
-    await runQuery(query, { oldNom, nom: finalNom, origine });
+    await runQuery(
+        "MATCH (p:Person {nom:$oldNom}) SET p.nom = $nom, p.origines = $origines",
+        { oldNom, nom: finalNom, origines: originesList }
+    );
+    await recordNodeEvent(nodeId, "modify", req);
     res.sendStatus(200);
 });
 
@@ -543,10 +594,11 @@ app.post("/import", requireAdmin, async (req, res) => {
             const nodeId = node.nodeId && /^\d{6}$/.test(node.nodeId)
                 ? node.nodeId
                 : await generateUniqueNodeId();
+            const originesList = Array.isArray(node.origines) ? node.origines.filter(Boolean) : [];
             const query = `
                 CREATE (:Person {
                     nom: $nom,
-                    origine: $origine,
+                    origines: $origines,
                     x: $x,
                     y: $y,
                     nodeId: $nodeId
@@ -554,7 +606,7 @@ app.post("/import", requireAdmin, async (req, res) => {
             `;
             await runQuery(query, {
                 nom: node.nom,
-                origine: node.origine || null,
+                origines: originesList,
                 x: node.x || 0,
                 y: node.y || 0,
                 nodeId
@@ -839,21 +891,23 @@ app.post("/proposals/:id/approve", async (req, res) => {
                         });
                     }
                     const newNodeId = await generateUniqueNodeId();
+                    const addOrigines = Array.isArray(data.origines) ? data.origines.filter(Boolean) : [];
                     await runQuery(`
                         CREATE (:Person {
                             nom: $nom,
-                            origine: $origine,
+                            origines: $origines,
                             x: $x,
                             y: $y,
                             nodeId: $nodeId
                         })
                     `, {
                         nom: data.nom,
-                        origine: data.origine || null,
+                        origines: addOrigines,
                         x: data.x,
                         y: data.y,
                         nodeId: newNodeId
                     });
+                    await recordNodeEvent(newNodeId, "add", req);
                     break;
 
                 case "add_relation":
@@ -882,16 +936,23 @@ app.post("/proposals/:id/approve", async (req, res) => {
                         setClause.push("p.nom = $newNom");
                         params.newNom = data.newNom;
                     }
-                    if (data.newOrigine !== undefined) {
-                        setClause.push("p.origine = $newOrigine");
-                        params.newOrigine = data.newOrigine;
+                    if (data.newOrigines !== undefined) {
+                        setClause.push("p.origines = $newOrigines");
+                        params.newOrigines = Array.isArray(data.newOrigines) ? data.newOrigines.filter(Boolean) : [];
                     }
 
                     if (setClause.length > 0) {
+                        const modMatch = await runQuery(
+                            "MATCH (p:Person {nom: $nom}) RETURN p.nodeId AS nodeId",
+                            { nom: data.nom }
+                        );
                         await runQuery(`
                             MATCH (p:Person {nom: $nom})
                             SET ${setClause.join(", ")}
                         `, params);
+                        if (modMatch.length > 0) {
+                            await recordNodeEvent(modMatch[0].get("nodeId"), "modify", req);
+                        }
                     }
                     break;
 

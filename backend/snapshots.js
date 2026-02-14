@@ -138,10 +138,13 @@ export async function restoreSnapshot(id) {
         const nodeId = node.nodeId && /^\d{6}$/.test(node.nodeId)
             ? node.nodeId
             : await generateUniqueNodeId();
+        const originesList = Array.isArray(node.origines)
+            ? node.origines.filter(Boolean)
+            : (node.origine ? [node.origine] : []);
         const query = `
             CREATE (:Person {
                 nom: $nom,
-                origine: $origine,
+                origines: $origines,
                 x: $x,
                 y: $y,
                 nodeId: $nodeId
@@ -149,7 +152,7 @@ export async function restoreSnapshot(id) {
         `;
         await runQuery(query, {
             nom: node.nom,
-            origine: node.origine || null,
+            origines: originesList,
             x: node.x || 0,
             y: node.y || 0,
             nodeId

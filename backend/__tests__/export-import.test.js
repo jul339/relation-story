@@ -31,7 +31,7 @@ describe("Export/Import Endpoints", () => {
 
             const jean = response.body.nodes.find(n => n.nom === "Jean DUPONT");
             expect(jean).toBeDefined();
-            expect(jean.origine).toBe("Famille");
+            expect(jean.origines).toEqual(["Famille"]);
             expect(jean.x).toBe(100);
             expect(jean.y).toBe(200);
 
@@ -53,8 +53,8 @@ describe("Export/Import Endpoints", () => {
         test("should import data", async () => {
             const importData = {
                 nodes: [
-                    { nom: "Jean DUPONT", origine: "Famille", x: 100, y: 200 },
-                    { nom: "Marie MARTIN", origine: "Travail", x: 300, y: 400 }
+                    { nom: "Jean DUPONT", origines: ["Famille"], x: 100, y: 200 },
+                    { nom: "Marie MARTIN", origines: ["Travail"], x: 300, y: 400 }
                 ],
                 edges: [
                     { source: "Jean DUPONT", target: "Marie MARTIN", type: "AMIS" }
@@ -83,7 +83,7 @@ describe("Export/Import Endpoints", () => {
 
             const importData = {
                 nodes: [
-                    { nom: "Jean DUPONT", origine: "Famille", x: 100, y: 200 }
+                    { nom: "Jean DUPONT", origines: ["Famille"], x: 100, y: 200 }
                 ],
                 edges: []
             };
@@ -98,7 +98,7 @@ describe("Export/Import Endpoints", () => {
             expect(persons.find(p => p.nom === "Paul BERNARD")).toBeUndefined();
         });
 
-        test("should handle import with missing origine", async () => {
+        test("should handle import with missing origines", async () => {
             const importData = {
                 nodes: [
                     { nom: "Jean DUPONT", x: 100, y: 200 }
@@ -114,15 +114,15 @@ describe("Export/Import Endpoints", () => {
 
             const persons = await getAllPersons();
             expect(persons[0].nom).toBe("Jean DUPONT");
-            expect(persons[0].origine).toBeUndefined();
+            expect(persons[0].origines).toEqual([]);
         });
 
         test("should handle import with multiple relations", async () => {
             const importData = {
                 nodes: [
-                    { nom: "Jean DUPONT", origine: "Famille", x: 100, y: 200 },
-                    { nom: "Marie MARTIN", origine: "Travail", x: 300, y: 400 },
-                    { nom: "Paul BERNARD", origine: "Sport", x: 500, y: 600 }
+                    { nom: "Jean DUPONT", origines: ["Famille"], x: 100, y: 200 },
+                    { nom: "Marie MARTIN", origines: ["Travail"], x: 300, y: 400 },
+                    { nom: "Paul BERNARD", origines: ["Sport"], x: 500, y: 600 }
                 ],
                 edges: [
                     { source: "Jean DUPONT", target: "Marie MARTIN", type: "AMIS" },
@@ -191,7 +191,7 @@ describe("Export/Import Endpoints", () => {
             expect(graph.body.edges).toHaveLength(2);
 
             const jean = persons.find(p => p.nom === "Jean DUPONT");
-            expect(jean.origine).toBe("Famille");
+            expect(jean.origines).toEqual(["Famille"]);
             expect(jean.x).toBe(100);
             expect(jean.y).toBe(200);
         });
