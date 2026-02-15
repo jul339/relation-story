@@ -2,157 +2,138 @@
 
 # Script pour peupler la base avec des données de test
 # Usage: ./seed-data.sh
+# Modèle: nom = "Prénom NOM", origines = tableau de strings (voir AGENTS.md)
 
 API_URL="http://localhost:3000"
 
 echo "🌱 Début du peuplement de la base de données..."
 echo ""
 
-
-# Ajouter les personnes
+# Ajouter les personnes (nom au format Prénom NOM, origines en array)
 echo "👥 Ajout des personnes..."
 
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Gali","origine":"Famille","x":200,"y":200}'
-  
+  -d '{"nom":"Gali MARTIN","origines":["Famille"],"x":200,"y":200}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Odilon","origine":"Famille","x":350,"y":180}'
-  
+  -d '{"nom":"Odilon BERNARD","origines":["Famille"],"x":350,"y":180}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Eva","origine":"Famille","x":500,"y":220}'
-  
+  -d '{"nom":"Eva LEROY","origines":["Famille"],"x":500,"y":220}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Maxime","origine":"Travail","x":200,"y":350}'
-  
+  -d '{"nom":"Maxime DUPONT","origines":["Travail"],"x":200,"y":350}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Robin","origine":"École","x":350,"y":330}'
-  
+  -d '{"nom":"Robin PETIT","origines":["École"],"x":350,"y":330}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Arthur","origine":"Travail","x":500,"y":370}'
-  
+  -d '{"nom":"Arthur ROUSSEAU","origines":["Travail"],"x":500,"y":370}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Inès","origine":"École","x":650,"y":200}'
-  
+  -d '{"nom":"Inès MOREAU","origines":["École"],"x":650,"y":200}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Cléo","origine":"Amis","x":650,"y":350}'
-  
+  -d '{"nom":"Cléo SIMON","origines":["Amis"],"x":650,"y":350}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Marion","origine":"Travail","x":800,"y":270}'
-  
+  -d '{"nom":"Marion LAURENT","origines":["Travail"],"x":800,"y":270}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Titou","origine":"Famille","x":200,"y":500}'
-  
+  -d '{"nom":"Titou LEFEBVRE","origines":["Famille"],"x":200,"y":500}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Paul","origine":"Travail","x":350,"y":480}'
-  
+  -d '{"nom":"Paul MICHEL","origines":["Travail"],"x":350,"y":480}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Greg","origine":"Sport","x":500,"y":520}'
-  
+  -d '{"nom":"Greg GARCIA","origines":["Sport"],"x":500,"y":520}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"David","origine":"Travail","x":650,"y":500}'
-  
+  -d '{"nom":"David ROBERT","origines":["Travail"],"x":650,"y":500}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Sophie","origine":"École","x":800,"y":480}'
-  
+  -d '{"nom":"Sophie RICHARD","origines":["École"],"x":800,"y":480}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Lucas","origine":"Sport","x":950,"y":200}'
-  
+  -d '{"nom":"Lucas DURAND","origines":["Sport"],"x":950,"y":200}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Camille","origine":"Amis","x":950,"y":350}'
-  
+  -d '{"nom":"Camille BERNARD","origines":["Amis"],"x":950,"y":350}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Thomas","origine":"Travail","x":950,"y":500}'
-  
+  -d '{"nom":"Thomas MARTINEZ","origines":["Travail"],"x":950,"y":500}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Emma","origine":"École","x":100,"y":350}'
-  
+  -d '{"nom":"Emma FAURE","origines":["École"],"x":100,"y":350}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Louis","origine":"Famille","x":1100,"y":350}'
-  
+  -d '{"nom":"Louis ROY","origines":["Famille"],"x":1100,"y":350}'
 curl -s -X POST "$API_URL/person" -H "Content-Type: application/json" \
-  -d '{"nom":"Léa","origine":"Amis","x":500,"y":100}'
+  -d '{"nom":"Léa MERCIER","origines":["Amis"],"x":500,"y":100}'
 
 echo "✅ 20 personnes ajoutées"
 echo ""
 sleep 1
 
-# Ajouter les relations
+# Ajouter les relations (source/target = nom complet "Prénom NOM")
 echo "🔗 Ajout des relations..."
 
-# Relations FAMILLE (bleu)
+# FAMILLE
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Gali","target":"Odilon","type":"FAMILLE"}'
+  -d '{"source":"Gali MARTIN","target":"Odilon BERNARD","type":"FAMILLE"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Gali","target":"Eva","type":"FAMILLE"}'
+  -d '{"source":"Gali MARTIN","target":"Eva LEROY","type":"FAMILLE"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Odilon","target":"Eva","type":"FAMILLE"}'
+  -d '{"source":"Odilon BERNARD","target":"Eva LEROY","type":"FAMILLE"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Gali","target":"Titou","type":"FAMILLE"}'
+  -d '{"source":"Gali MARTIN","target":"Titou LEFEBVRE","type":"FAMILLE"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Emma","target":"Gali","type":"FAMILLE"}'
+  -d '{"source":"Emma FAURE","target":"Gali MARTIN","type":"FAMILLE"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Louis","target":"Marion","type":"FAMILLE"}'
+  -d '{"source":"Louis ROY","target":"Marion LAURENT","type":"FAMILLE"}'
 
-# Relations AMIS (vert)
+# AMIS
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Maxime","target":"Robin","type":"AMIS"}'
+  -d '{"source":"Maxime DUPONT","target":"Robin PETIT","type":"AMIS"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Robin","target":"Arthur","type":"AMIS"}'
+  -d '{"source":"Robin PETIT","target":"Arthur ROUSSEAU","type":"AMIS"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Maxime","target":"Arthur","type":"AMIS"}'
+  -d '{"source":"Maxime DUPONT","target":"Arthur ROUSSEAU","type":"AMIS"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Inès","target":"Cléo","type":"AMIS"}'
+  -d '{"source":"Inès MOREAU","target":"Cléo SIMON","type":"AMIS"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Marion","target":"Cléo","type":"AMIS"}'
+  -d '{"source":"Marion LAURENT","target":"Cléo SIMON","type":"AMIS"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Paul","target":"Greg","type":"AMIS"}'
+  -d '{"source":"Paul MICHEL","target":"Greg GARCIA","type":"AMIS"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Greg","target":"David","type":"AMIS"}'
+  -d '{"source":"Greg GARCIA","target":"David ROBERT","type":"AMIS"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Sophie","target":"Emma","type":"AMIS"}'
+  -d '{"source":"Sophie RICHARD","target":"Emma FAURE","type":"AMIS"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Lucas","target":"Thomas","type":"AMIS"}'
+  -d '{"source":"Lucas DURAND","target":"Thomas MARTINEZ","type":"AMIS"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Camille","target":"Léa","type":"AMIS"}'
+  -d '{"source":"Camille BERNARD","target":"Léa MERCIER","type":"AMIS"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Robin","target":"Inès","type":"AMIS"}'
+  -d '{"source":"Robin PETIT","target":"Inès MOREAU","type":"AMIS"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Arthur","target":"David","type":"AMIS"}'
+  -d '{"source":"Arthur ROUSSEAU","target":"David ROBERT","type":"AMIS"}'
 
-# Relations AMOUR (rouge)
+# AMOUR
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Maxime","target":"Sophie","type":"AMOUR"}'
+  -d '{"source":"Maxime DUPONT","target":"Sophie RICHARD","type":"AMOUR"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Sophie","target":"Maxime","type":"AMOUR"}'
+  -d '{"source":"Sophie RICHARD","target":"Maxime DUPONT","type":"AMOUR"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Lucas","target":"Camille","type":"AMOUR"}'
+  -d '{"source":"Lucas DURAND","target":"Camille BERNARD","type":"AMOUR"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Camille","target":"Lucas","type":"AMOUR"}'
+  -d '{"source":"Camille BERNARD","target":"Lucas DURAND","type":"AMOUR"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Paul","target":"Marion","type":"AMOUR"}'
+  -d '{"source":"Paul MICHEL","target":"Marion LAURENT","type":"AMOUR"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Marion","target":"Paul","type":"AMOUR"}'
+  -d '{"source":"Marion LAURENT","target":"Paul MICHEL","type":"AMOUR"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Léa","target":"Thomas","type":"AMOUR"}'
+  -d '{"source":"Léa MERCIER","target":"Thomas MARTINEZ","type":"AMOUR"}'
 
-# Relations mixtes (travail, école, etc.)
+# Mixtes
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Gali","target":"Maxime","type":"AMIS"}'
+  -d '{"source":"Gali MARTIN","target":"Maxime DUPONT","type":"AMIS"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Eva","target":"Inès","type":"AMIS"}'
+  -d '{"source":"Eva LEROY","target":"Inès MOREAU","type":"AMIS"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Titou","target":"Paul","type":"FAMILLE"}'
+  -d '{"source":"Titou LEFEBVRE","target":"Paul MICHEL","type":"FAMILLE"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"Odilon","target":"Robin","type":"AMIS"}'
+  -d '{"source":"Odilon BERNARD","target":"Robin PETIT","type":"AMIS"}'
 curl -s -X POST "$API_URL/relation" -H "Content-Type: application/json" \
-  -d '{"source":"David","target":"Thomas","type":"AMIS"}'
+  -d '{"source":"David ROBERT","target":"Thomas MARTINEZ","type":"AMIS"}'
 
 echo "✅ 32 relations ajoutées"
 echo ""
 
 echo "🎉 Peuplement terminé avec succès !"
 echo "📊 Statistiques :"
-echo "   - 20 personnes"
+echo "   - 20 personnes (nom = Prénom NOM, origines = array)"
 echo "   - 32 relations"
 echo "   - Types : FAMILLE (bleu), AMIS (vert), AMOUR (rouge)"
 echo ""

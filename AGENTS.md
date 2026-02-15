@@ -13,7 +13,7 @@ Application web permettant de créer et visualiser un graphe de relations entre 
 - Port: `process.env.PORT` (défaut 3000)
 - CORS: `process.env.CORS_ORIGIN` (défaut `*` ; si `*` et requête avec `Origin`, la réponse renvoie cette origine pour permettre `credentials: 'include'`).
 - Connexion Neo4j via `neo4j.js` ; module **ids.js** : `generateUniqueNodeId`, `generateUniqueEdgeId`, `migrateNodeIdsAndEdgeIds` (IDs 6 chiffres pour Person et relations).
-- **Base SQL** : `backend/db.js` (PostgreSQL via `DATABASE_URL`, ex. Supabase). Tables : `users` (email, password_hash, person_node_id, visibility_level, created_at) ; `node_events` (audit des ajouts/modifications de nœuds : node_id, action, created_by, created_at, created_with_visibility_level) ; `session` (connect-pg-simple). `initDb()` au démarrage.
+- **Base SQL** : `backend/db.js` (PostgreSQL via `DATABASE_URL`, ex. Supabase). Tables : `users` ; `node_events` (audit nœuds) ; `edge_events` (audit relations : edge_id, action add/delete, created_by, created_at, created_with_visibility_level) ; `session` (connect-pg-simple). `initDb()` au démarrage.
 - Session : `express-session` + `connect-pg-simple` si `DATABASE_URL`, sinon mémoire. Cookie httpOnly, 7 jours. `isAdmin(req)` = hostname localhost ou 127.0.0.1 ; `requireAdmin` = 403 si non admin ; `requireAuth` = 401 si non connecté.
 - Écritures directes (POST/PATCH/DELETE person, POST/DELETE relation, POST /import) protégées par **requireAdmin** : 403 en dehors de localhost.
 - Module snapshots : `backend/snapshots.js` (création/liste/restauration de versions JSON).
@@ -116,6 +116,17 @@ Audit des ajouts et modifications de nœuds (une ligne par événement). Remplie
 - **created_at** (TIMESTAMPTZ)
 - **created_with_visibility_level** – niveau de visibilité de l’utilisateur au moment de l’action
 
+### Table `edge_events` (PostgreSQL)
+
+Audit des créations et suppressions de relations (une ligne par événement). Remplie si `DATABASE_URL` est défini.
+
+- **id** (SERIAL) – identifiant de l’événement
+- **edge_id** (VARCHAR(6)) – edgeId de la relation concernée
+- **action** – `'add'` ou `'delete'`
+- **created_by** – email de l’utilisateur (session) ou null
+- **created_at** (TIMESTAMPTZ)
+- **created_with_visibility_level** – niveau de visibilité de l’utilisateur au moment de l’action
+
 ## 🔌 API REST
 
 ### GET /graph
@@ -208,7 +219,7 @@ Erreur: 400 si nouveau nom au mauvais format
 
 ### POST /relation
 
-Crée une relation entre deux personnes. **Réservé à l'admin** : 403 en dehors de localhost.
+Crée une relation entre deux personnes. **Réservé à l'admin** : 403 en dehors de localhost. Enregistre un événement dans `edge_events` (action `add`) si `DATABASE_URL` est défini.
 
 ```json
 Body: { "source": "Jean DUPONT", "target": "Marie MARTIN", "type": "AMIS" }
@@ -217,7 +228,7 @@ Response: 201 Created
 
 ### DELETE /relation
 
-Supprime une relation. **Réservé à l'admin** : 403 en dehors de localhost.
+Supprime une relation. **Réservé à l'admin** : 403 en dehors de localhost. Enregistre un événement dans `edge_events` (action `delete`) si `DATABASE_URL` est défini.
 
 ```json
 Body: { "source": "Jean DUPONT", "target": "Marie MARTIN", "type": "AMIS" }
@@ -259,7 +270,7 @@ Response: { "message": "Import réussi", "nodesCount": 5, "edgesCount": 3 }
 - **GET /proposals/stats** – Admin : stats globales. Connecté (non admin) : stats uniquement pour les propositions de l'utilisateur (authorEmail = session.user.email). Non connecté : `{ pending: 0, approved: 0, rejected: 0, total: 0 }`.
 - **GET /proposals** – Admin : toutes les propositions. Connecté : uniquement celles dont authorEmail = session.user.email. Non connecté : 401.
 - **GET /proposals/:id** – Détails d'une proposition. Admin : accès à toute. Connecté : uniquement si authorEmail = session.user.email, sinon 403.
-- **POST /proposals/:id/approve** – Approuver (applique le changement, crée un snapshot, enregistre un événement dans `node_events` pour add_node/modify_node si `DATABASE_URL` défini). Body: `{ reviewedBy, comment? }`. Pour add_node et modify_node, le nom doit respecter le format Prénom NOM, sinon 400.
+- **POST /proposals/:id/approve** – Approuver (applique le changement, crée un snapshot ; enregistre dans `node_events` pour add_node/modify_node, dans `edge_events` pour add_relation/delete_relation, si `DATABASE_URL` défini). Body: `{ reviewedBy, comment? }`. Pour add_node et modify_node, le nom doit respecter le format Prénom NOM, sinon 400.
 - **POST /proposals/:id/reject** – Rejeter. Body: `{ reviewedBy, comment }`.
 
 ### Snapshots (versions)
@@ -407,7 +418,7 @@ Accès:
 - **Création par clic**: Clic sur fond → nouveau nœud (prompt nom + origines)
 - **Modification par double-clic**: Nœuds (nom + origines), relations, groupes
 - **Groupes visuels**: Un rectangle par origine, pouvant se chevaucher ; un nœud peut être dans plusieurs rectangles
-- **Audit nœuds**: Table PostgreSQL `node_events` (une ligne par add/modify) : node_id, action, created_by, created_at, created_with_visibility_level
+- **Audit nœuds**: Table `node_events` (une ligne par add/modify). **Audit relations**: Table `edge_events` (une ligne par add/delete de relation).
 - **Drag & drop**: Sauvegarde auto via endpoint PATCH
 - **Export/Import**: Système complet de backup/restore
 - **Contrôles de zoom**: Boutons +/-, Ajuster, support trackpad et molette
