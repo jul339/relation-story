@@ -93,6 +93,21 @@ async function recordNodeEvent(nodeId, action, req) {
     }
 }
 
+async function recordEdgeEvent(edgeId, action, req) {
+    if (!process.env.DATABASE_URL || !edgeId) return;
+    const user = req.session?.user;
+    const createdBy = user?.email ?? null;
+    const level = user?.visibility_level ?? null;
+    try {
+        await runSql(
+            "INSERT INTO edge_events (edge_id, action, created_by, created_at, created_with_visibility_level) VALUES ($1, $2, $3, NOW(), $4)",
+            [String(edgeId), action, createdBy, level]
+        );
+    } catch (e) {
+        console.warn("edge_events insert failed:", e.message);
+    }
+}
+
 /* ---------- AUTH ---------- */
 app.post("/auth/register", async (req, res) => {
     const { email, password, person_node_id } = req.body;
@@ -645,6 +660,7 @@ app.post("/relation", requireAdmin, async (req, res) => {
     CREATE (a)-[r:${type} {edgeId: $edgeId}]->(b)
   `;
     await runQuery(query, { source, target, edgeId });
+    await recordEdgeEvent(edgeId, "add", req);
     res.sendStatus(201);
 });
 
@@ -652,14 +668,18 @@ app.post("/relation", requireAdmin, async (req, res) => {
 app.delete("/relation", requireAdmin, async (req, res) => {
     const { source, target, type } = req.body;
 
-    const query = `
-    MATCH (a:Person {nom:$source})
-    -[r:${type}]->
-    (b:Person {nom:$target})
-    DELETE r
-  `;
-
-    await runQuery(query, { source, target });
+    const matchResult = await runQuery(
+        `MATCH (a:Person {nom: $source})-[r:${type}]->(b:Person {nom: $target}) RETURN r.edgeId AS edgeId`,
+        { source, target }
+    );
+    if (matchResult.length > 0) {
+        const edgeId = matchResult[0].get("edgeId");
+        await runQuery(
+            `MATCH (a:Person {nom:$source})-[r:${type}]->(b:Person {nom:$target}) DELETE r`,
+            { source, target }
+        );
+        await recordEdgeEvent(edgeId, "delete", req);
+    }
     res.sendStatus(200);
 });
 
@@ -921,6 +941,7 @@ app.post("/proposals/:id/approve", async (req, res) => {
                         target: data.target,
                         edgeId: newEdgeId
                     });
+                    await recordEdgeEvent(newEdgeId, "add", req);
                     break;
 
                 case "modify_node":
@@ -963,7 +984,11 @@ app.post("/proposals/:id/approve", async (req, res) => {
                     `, { nom: data.nom });
                     break;
 
-                case "delete_relation":
+                case "delete_relation": {
+                    const delMatch = await runQuery(
+                        `MATCH (a:Person {nom: $source})-[r:${data.type}]->(b:Person {nom: $target}) RETURN r.edgeId AS edgeId`,
+                        { source: data.source, target: data.target }
+                    );
                     await runQuery(`
                         MATCH (a:Person {nom: $source})-[r:${data.type}]->(b:Person {nom: $target})
                         DELETE r
@@ -971,7 +996,11 @@ app.post("/proposals/:id/approve", async (req, res) => {
                         source: data.source,
                         target: data.target
                     });
+                    if (delMatch.length > 0) {
+                        await recordEdgeEvent(delMatch[0].get("edgeId"), "delete", req);
+                    }
                     break;
+                }
 
                 default:
                     throw new Error(`Type de proposition inconnu: ${type}`);

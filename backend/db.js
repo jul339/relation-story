@@ -45,6 +45,17 @@ CREATE TABLE IF NOT EXISTS node_events (
 );
 `;
 
+const CREATE_EDGE_EVENTS = `
+CREATE TABLE IF NOT EXISTS edge_events (
+  id SERIAL PRIMARY KEY,
+  edge_id VARCHAR(6) NOT NULL,
+  action VARCHAR(10) NOT NULL,
+  created_by VARCHAR(255),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_with_visibility_level SMALLINT
+);
+`;
+
 export async function initDb() {
     if (!process.env.DATABASE_URL) {
         console.warn("DATABASE_URL non défini, base SQL ignorée");
@@ -52,4 +63,5 @@ export async function initDb() {
     }
     await runSql(CREATE_USERS);
     await runSql(CREATE_NODE_EVENTS);
+    await runSql(CREATE_EDGE_EVENTS);
 }
